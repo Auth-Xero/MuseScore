@@ -236,6 +236,7 @@ class ScoreView : public QWidget, public MuseScoreView {
       void endFotoDrag();
       void endFotoDragEdit();
       QImage getRectImage(const QRectF& rect, double dpi, bool transparent, bool printMode);
+      friend class ImageTestScriptEntry; // needs an access to getRectImage
 
       virtual void startEdit();
       void endEdit();

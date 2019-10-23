@@ -46,6 +46,7 @@ class ScriptRecorderWidget : public QDockWidget {
       void on_scriptNameEdit_textEdited();
       void on_recordButton_clicked();
       void on_replayButton_clicked();
+      void on_pageScreenshotButton_clicked();
 
    protected:
       void changeEvent(QEvent* e) override;

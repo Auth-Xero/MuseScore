@@ -28,6 +28,7 @@ class TestScriptEntry : public ScriptEntry {
       static QString entryTemplate(const char* testType) { return ScriptEntry::entryTemplate(SCRIPT_TEST).arg(testType) + " %1"; }
    public:
       static constexpr const char* TEST_SCORE = "score";
+      static constexpr const char* TEST_IMAGE = "image";
 
       static std::unique_ptr<ScriptEntry> deserialize(const QStringList& tokens);
       };
@@ -42,6 +43,27 @@ class ScoreTestScriptEntry : public TestScriptEntry {
       ScoreTestScriptEntry(QString refPath) : _refPath(refPath) {}
       bool execute(ScriptContext& ctx) const override;
       QString serialize() const override { return entryTemplate(TEST_SCORE).arg(_refPath); }
+      static std::unique_ptr<ScriptEntry> fromContext(const ScriptContext& ctx, QString fileName = QString());
+      };
+
+//---------------------------------------------------------
+//   ImageTestScriptEntry
+//---------------------------------------------------------
+
+class ImageTestScriptEntry : public TestScriptEntry {
+      QString _refPath;
+      int _pageIndex = 0;
+
+      // parameters for ScoreView::getRectImage()
+      static constexpr int dpi = 130;
+      static constexpr bool transparent = true;
+      static constexpr bool printMode = false;
+
+   public:
+      ImageTestScriptEntry(QString refPath, int pageIndex) : _refPath(refPath), _pageIndex(pageIndex) {}
+      bool execute(ScriptContext& ctx) const override;
+      QString serialize() const override { return entryTemplate(TEST_IMAGE).arg(QString("page %1 %2").arg(_pageIndex).arg(_refPath)); }
+      static std::unique_ptr<ScriptEntry> deserialize(const QStringList& tokens);
       static std::unique_ptr<ScriptEntry> fromContext(const ScriptContext& ctx, QString fileName = QString());
       };
 

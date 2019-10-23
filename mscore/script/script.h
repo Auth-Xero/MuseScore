@@ -114,6 +114,7 @@ class ScriptRecorder {
       void recordInspectorValueChange(const Element*, const InspectorItem&, const QVariant& value);
       void recordCurrentScoreChange();
       void recordScoreTest(QString scoreName = QString());
+      void recordPageScreenshotTest(QString imgName);
       };
 
 }     // namespace Ms

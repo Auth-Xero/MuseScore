@@ -203,4 +203,15 @@ void ScriptRecorder::recordScoreTest(QString scoreName)
             _script.addEntry(ScoreTestScriptEntry::fromContext(_ctx, scoreName));
       syncRecord();
       }
+
+//---------------------------------------------------------
+//   ScriptRecorder::recordPageScreenshotTest
+//---------------------------------------------------------
+
+void ScriptRecorder::recordPageScreenshotTest(QString imgName)
+      {
+      if (_recording)
+            _script.addEntry(ImageTestScriptEntry::fromContext(_ctx, imgName));
+      syncRecord();
+      }
 }

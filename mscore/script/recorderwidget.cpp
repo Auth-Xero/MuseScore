@@ -152,4 +152,24 @@ void ScriptRecorderWidget::on_replayButton_clicked()
       ctx.setStopOnError(false);
       script->execute(ctx);
       }
+
+//---------------------------------------------------------
+//   ScriptRecorderWidget::on_pageScreenshotButton_clicked
+//---------------------------------------------------------
+
+void ScriptRecorderWidget::on_pageScreenshotButton_clicked()
+      {
+      const QFileInfo scriptInfo(scriptFileName());
+      const QString imgNameTemplate(scriptInfo.completeBaseName() + "_%1.png");
+
+      int idx = 0;
+      QString imgName = imgNameTemplate.arg(idx);
+      const QDir dir(_scriptDir);
+      while (QFileInfo(dir.filePath(imgName)).exists()) {
+            ++idx;
+            imgName = imgNameTemplate.arg(idx);
+            }
+
+      _recorder.recordPageScreenshotTest(imgName);
+      }
 }

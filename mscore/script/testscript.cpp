@@ -13,8 +13,10 @@
 #include "testscript.h"
 
 #include "musescore.h"
+#include "scoreview.h"
 #include "script.h"
 
+#include "libmscore/page.h"
 #include "libmscore/scorediff.h"
 
 namespace Ms {
@@ -39,6 +41,8 @@ std::unique_ptr<ScriptEntry> TestScriptEntry::deserialize(const QStringList& tok
                   }
             return std::unique_ptr<ScriptEntry>(new ScoreTestScriptEntry(tokens[2]));
             }
+      else if (type == TEST_IMAGE)
+            return ImageTestScriptEntry::deserialize(tokens);
 
       qDebug() << "test: unsupported type:" << tokens[1];
       return nullptr;
@@ -96,5 +100,88 @@ bool ScoreTestScriptEntry::execute(ScriptContext& ctx) const
             return false;
             }
       return true;
+      }
+
+//---------------------------------------------------------
+//   ImageTestScriptEntry::deserialize
+//---------------------------------------------------------
+
+std::unique_ptr<ScriptEntry> ImageTestScriptEntry::deserialize(const QStringList& tokens)
+      {
+      if (tokens.size() < 5) {
+            qWarning("test image: unexpected number of tokens: %d", tokens.size());
+            return nullptr;
+            }
+
+      if (tokens[2] == "page") {
+            bool ok;
+            const int pageIndex = tokens[3].toInt(&ok);
+            const QString& refPath = tokens[4];
+
+            if (!ok)
+                  return nullptr;
+            return std::unique_ptr<ScriptEntry>(new ImageTestScriptEntry(refPath, pageIndex));
+            }
+      else
+            qWarning("unknown image test type: %s", qPrintable(tokens[2]));
+
+      return nullptr;
+      }
+
+//---------------------------------------------------------
+//   ImageTestScriptEntry::fromContext
+//---------------------------------------------------------
+
+std::unique_ptr<ScriptEntry> ImageTestScriptEntry::fromContext(const ScriptContext& ctx, QString fileName)
+      {
+      if (fileName.isEmpty())
+            return nullptr;
+
+      ScoreView* v = ctx.mscore()->currentScoreView();
+      if (!v)
+            return nullptr;
+
+      const QRectF r = v->canvasViewport();
+      const QPointF p((r.left() + r.right()) / 2, (r.top() + r.bottom()) / 2);
+
+      int pageIdx = v->score()->pageIdx(v->point2page(p));
+      if (pageIdx < 0)
+            pageIdx = 0;
+
+      const QImage img = v->getRectImage(v->score()->pages()[pageIdx]->canvasBoundingRect(), dpi, transparent, printMode);
+
+      QString filePath = ctx.absoluteFilePath(fileName);
+      img.save(filePath);
+
+      if (ctx.relativePaths())
+            filePath = fileName;
+
+      return std::unique_ptr<ScriptEntry>(new ImageTestScriptEntry(filePath, pageIdx));
+      }
+
+//---------------------------------------------------------
+//   ImageTestScriptEntry::execute
+//---------------------------------------------------------
+
+bool ImageTestScriptEntry::execute(ScriptContext& ctx) const
+      {
+      ScoreView* v = ctx.mscore()->currentScoreView();
+      if (!v) {
+            ctx.execLog() << "ImageTestScriptEntry: no score view" << endl;
+            return false;
+            }
+
+      QImage refImg;
+      const QString refImgPath = ctx.absoluteFilePath(_refPath);
+      if (!refImg.load(refImgPath)) {
+            ctx.execLog() << "ImageTestScriptEntry: couldn't load reference image: " << refImgPath << endl;
+            return false;
+            }
+
+      QImage img = v->getRectImage(v->score()->pages()[_pageIndex]->canvasBoundingRect(), dpi, transparent, printMode);
+      img = img.convertToFormat(refImg.format());
+
+      return img == refImg;
+      // TODO: save "wrong" image in case of failure?
       }
 }
