@@ -19,6 +19,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include <cfloat>
 
 #include "shape.h"
 
@@ -31,6 +32,15 @@
 using namespace mu;
 using namespace mu::draw;
 using namespace mu::engraving;
+
+Shape::Shape(const std::vector<RectF>& rects, const EngravingItem* p)
+{
+    m_type = Type::Composite;
+    m_elements.reserve(rects.size());
+    for (const RectF& rect : rects) {
+        m_elements.emplace_back(ShapeElement(rect, p));
+    }
+}
 
 //---------------------------------------------------------
 //   addHorizontalSpacing
@@ -88,8 +98,28 @@ void Shape::translateY(double yo)
 Shape Shape::translated(const PointF& pt) const
 {
     Shape s;
+    s.m_elements.reserve(m_elements.size());
     for (const ShapeElement& r : m_elements) {
         s.add(r.translated(pt), r.item());
+    }
+    return s;
+}
+
+Shape& Shape::scale(const SizeF& mag)
+{
+    for (RectF& r : m_elements) {
+        r.scale(mag);
+    }
+    invalidateBBox();
+    return *this;
+}
+
+Shape Shape::scaled(const SizeF& mag) const
+{
+    Shape s;
+    s.m_elements.reserve(m_elements.size());
+    for (const ShapeElement& r : m_elements) {
+        s.add(r.scaled(mag), r.item());
     }
     return s;
 }
@@ -156,7 +186,7 @@ double Shape::minVerticalDistance(const Shape& a) const
         return 0.0;
     }
 
-    double dist = -1000000.0; // min real
+    double dist = -DBL_MAX; // min real
     for (const RectF& r2 : a.m_elements) {
         if (r2.height() <= 0.0) {
             continue;
@@ -191,7 +221,7 @@ double Shape::verticalClearance(const Shape& a, double minHorizontalDistance) co
         return 0.0;
     }
 
-    double dist = 1000000.0; // max real
+    double dist = DBL_MAX; // max real
     for (const RectF& r2 : a.m_elements) {
         if (r2.height() <= 0.0) {
             continue;
@@ -239,7 +269,7 @@ bool Shape::clearsVertically(const Shape& a) const
 
 double Shape::left() const
 {
-    double dist = 10000.0;
+    double dist = DBL_MAX;
     for (const ShapeElement& r : m_elements) {
         if (r.height() != 0.0 && !(r.item() && r.item()->isTextBase()) && r.left() < dist) {
             // if (r.left() < dist)
@@ -256,7 +286,7 @@ double Shape::left() const
 
 double Shape::right() const
 {
-    double dist = -10000.0;
+    double dist = -DBL_MAX;
     for (const RectF& r : m_elements) {
         if (r.right() > dist) {
             dist = r.right();
@@ -276,7 +306,7 @@ double Shape::right() const
 
 double Shape::top() const
 {
-    double dist = 1000000.0;
+    double dist = DBL_MAX;
     for (const RectF& r : m_elements) {
         if (r.top() < dist) {
             dist = r.top();
@@ -291,7 +321,7 @@ double Shape::top() const
 
 double Shape::bottom() const
 {
-    double dist = -1000000.0;
+    double dist = -DBL_MAX;
     for (const RectF& r : m_elements) {
         if (r.bottom() > dist) {
             dist = r.bottom();
@@ -302,7 +332,7 @@ double Shape::bottom() const
 
 double Shape::rightMostEdgeAtHeight(double yAbove, double yBelow) const
 {
-    double edge = -std::numeric_limits<double>::max();
+    double edge = -DBL_MAX;
     for (const ShapeElement& sh : m_elements) {
         if (sh.bottom() > yAbove && sh.top() < yBelow) {
             edge = std::max(edge, sh.right());
@@ -314,7 +344,7 @@ double Shape::rightMostEdgeAtHeight(double yAbove, double yBelow) const
 
 double Shape::leftMostEdgeAtHeight(double yAbove, double yBelow) const
 {
-    double edge = std::numeric_limits<double>::max();
+    double edge = DBL_MAX;
     for (const ShapeElement& sh : m_elements) {
         if (sh.bottom() > yAbove && sh.top() < yBelow) {
             edge = std::min(edge, sh.left());
@@ -332,7 +362,7 @@ double Shape::leftMostEdgeAtHeight(double yAbove, double yBelow) const
 
 double Shape::topDistance(const PointF& p) const
 {
-    double dist = 1000000.0;
+    double dist = DBL_MAX;
     for (const RectF& r : m_elements) {
         if (p.x() >= r.left() && p.x() < r.right()) {
             dist = std::min(dist, r.top() - p.y());
@@ -349,7 +379,7 @@ double Shape::topDistance(const PointF& p) const
 
 double Shape::bottomDistance(const PointF& p) const
 {
-    double dist = 1000000.0;
+    double dist = DBL_MAX;
     for (const RectF& r : m_elements) {
         if (p.x() >= r.left() && p.x() < r.right()) {
             dist = std::min(dist, p.y() - r.bottom());
@@ -395,17 +425,10 @@ void Shape::add(const Shape& s)
     invalidateBBox();
 }
 
-void Shape::add(const RectF& r, const EngravingItem* p)
+void Shape::add(const ShapeElement& shapeEl)
 {
     m_type = Type::Composite;
-    m_elements.push_back(ShapeElement(r, p));
-    invalidateBBox();
-}
-
-void Shape::add(const mu::RectF& r)
-{
-    m_type = Type::Composite;
-    m_elements.push_back(ShapeElement(r));
+    m_elements.push_back(shapeEl);
     invalidateBBox();
 }
 

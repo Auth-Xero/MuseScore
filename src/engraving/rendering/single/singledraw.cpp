@@ -112,6 +112,7 @@
 #include "dom/symbol.h"
 #include "dom/systemdivider.h"
 #include "dom/systemtext.h"
+#include "dom/soundflag.h"
 
 #include "dom/tempotext.h"
 #include "dom/text.h"
@@ -120,7 +121,6 @@
 #include "dom/textlinebase.h"
 #include "dom/tie.h"
 #include "dom/timesig.h"
-#include "dom/tremolo.h"
 #include "dom/tremolosinglechord.h"
 #include "dom/tremolotwochord.h"
 #include "dom/tremolobar.h"
@@ -297,6 +297,8 @@ void SingleDraw::drawItem(const EngravingItem* item, draw::Painter* painter)
     case ElementType::SYSTEM_DIVIDER:       draw(item_cast<const SystemDivider*>(item), painter);
         break;
     case ElementType::SYSTEM_TEXT:          draw(item_cast<const SystemText*>(item), painter);
+        break;
+    case ElementType::SOUND_FLAG:           draw(item_cast<const SoundFlag*>(item), painter);
         break;
 
     case ElementType::TEMPO_TEXT:           draw(item_cast<const TempoText*>(item), painter);
@@ -512,11 +514,8 @@ void SingleDraw::draw(const Note* item, Painter* painter)
         painter->setFont(f);
         painter->setPen(c);
         double startPosX = ldata->bbox().x();
-        if (item->ghost() && config->tablatureParenthesesZIndexWorkaround()) {
-            startPosX += item->symWidth(SymId::noteheadParenthesisLeft);
-        }
 
-        painter->drawText(PointF(startPosX, tab->fretFontYOffset() * item->magS()), item->fretString());
+        painter->drawText(PointF(startPosX, tab->fretFontYOffset(item->style()) * item->magS()), item->fretString());
     }
     // NOT tablature
     else {
@@ -1730,9 +1729,9 @@ void SingleDraw::draw(const GradualTempoChangeSegment* item, Painter* painter)
     drawTextLineBaseSegment(item, painter);
 }
 
-void SingleDraw::draw(const GuitarBendSegment* item, draw::Painter* painter)
+void SingleDraw::draw(const GuitarBendSegment*, draw::Painter*)
 {
-    TRACE_DRAW_ITEM;
+    // TRACE_DRAW_ITEM;
     // To be implemented
 }
 
@@ -2223,7 +2222,13 @@ void SingleDraw::draw(const StaffState* item, Painter* painter)
 void SingleDraw::draw(const StaffText* item, Painter* painter)
 {
     TRACE_DRAW_ITEM;
+
     drawTextBase(item, painter);
+
+    if (item->hasSoundFlag()) {
+        item->soundFlag()->setIconFontSize(item->font().pointSizeF() * MScore::pixelRatio);
+        draw(item->soundFlag(), painter);
+    }
 }
 
 void SingleDraw::draw(const StaffTypeChange* item, Painter* painter)
@@ -2299,6 +2304,15 @@ void SingleDraw::draw(const SystemText* item, Painter* painter)
     drawTextBase(item, painter);
 }
 
+void SingleDraw::draw(const SoundFlag* item, draw::Painter* painter)
+{
+    TRACE_DRAW_ITEM;
+
+    mu::draw::Font f(item->iconFont());
+    painter->setFont(f);
+    painter->drawText(item->ldata()->bbox(), draw::AlignCenter, Char(item->iconCode()));
+}
+
 void SingleDraw::draw(const TempoText* item, Painter* painter)
 {
     TRACE_DRAW_ITEM;
@@ -2339,23 +2353,23 @@ void SingleDraw::draw(const TieSegment* item, Painter* painter)
         painter->setBrush(Brush(pen.color()));
         pen.setCapStyle(PenCapStyle::RoundCap);
         pen.setJoinStyle(PenJoinStyle::RoundJoin);
-        pen.setWidthF(item->style().styleMM(Sid::SlurEndWidth) * mag);
+        pen.setWidthF(item->style().styleMM(Sid::TieEndWidth) * mag);
         break;
     case SlurStyleType::Dotted:
         painter->setBrush(BrushStyle::NoBrush);
         pen.setCapStyle(PenCapStyle::RoundCap);           // True dots
         pen.setDashPattern(dotted);
-        pen.setWidthF(item->style().styleMM(Sid::SlurDottedWidth) * mag);
+        pen.setWidthF(item->style().styleMM(Sid::TieDottedWidth) * mag);
         break;
     case SlurStyleType::Dashed:
         painter->setBrush(BrushStyle::NoBrush);
         pen.setDashPattern(dashed);
-        pen.setWidthF(item->style().styleMM(Sid::SlurDottedWidth) * mag);
+        pen.setWidthF(item->style().styleMM(Sid::TieDottedWidth) * mag);
         break;
     case SlurStyleType::WideDashed:
         painter->setBrush(BrushStyle::NoBrush);
         pen.setDashPattern(wideDashed);
-        pen.setWidthF(item->style().styleMM(Sid::SlurDottedWidth) * mag);
+        pen.setWidthF(item->style().styleMM(Sid::TieDottedWidth) * mag);
         break;
     case SlurStyleType::Undefined:
         break;

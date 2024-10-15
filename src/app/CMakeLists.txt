@@ -4,7 +4,7 @@
 # MuseScore
 # Music Composition & Notation
 #
-# Copyright (C) 2021 MuseScore BVBA and others
+# Copyright (C) 2021-2024 MuseScore BVBA and others
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
@@ -70,7 +70,7 @@ elseif(OS_IS_MAC)
     set(MACOSX_BUNDLE_LONG_VERSION_STRING ${MUSESCORE_VERSION})
     set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${MUSESCORE_VERSION})
     set(MACOSX_BUNDLE_BUNDLE_VERSION ${CMAKE_BUILD_NUMBER})
-    set(MACOSX_BUNDLE_COPYRIGHT "Copyright © 1999-2023 MuseScore BVBA and others. Published under the GNU General Public License version 3.")
+    set(MACOSX_BUNDLE_COPYRIGHT "Copyright © 1999-2024 MuseScore BVBA and others. Published under the GNU General Public License version 3.")
 
     set(CMAKE_INSTALL_RPATH ${QT_INSTALL_LIBS})
 
@@ -285,8 +285,13 @@ if (NOT CC_IS_EMSCRIPTEN)
 else()
     target_link_libraries(mscore PRIVATE ${QT_LIBRARIES})
 
-    find_package(Qt5QmlImportScanner REQUIRED)
-    qt5_import_qml_plugins(mscore PATH_TO_SCAN ${CMAKE_SOURCE_DIR})
+    if (MUE_COMPILE_QT5_COMPAT)
+        find_package(Qt5QmlImportScanner REQUIRED)
+        qt5_import_qml_plugins(mscore PATH_TO_SCAN ${CMAKE_SOURCE_DIR})
+    else()
+        find_package(Qt6QmlImportScanner REQUIRED)
+        qt6_import_qml_plugins(mscore PATH_TO_SCAN ${CMAKE_SOURCE_DIR})
+    endif()
 endif()
 
 
@@ -327,36 +332,59 @@ if (OS_IS_WIN)
     endforeach (QtLibrary ${QT_LIBRARIES})
     list(REMOVE_DUPLICATES QtInstallLibraries)
 
-    install(FILES
-            ${PROJECT_SOURCE_DIR}/build/qt.conf
-            ${QtInstallLibraries}
-            ${QT_INSTALL_BINS}/libEGL.dll
-            ${QT_INSTALL_BINS}/libGLESv2.dll
-            ${QT_INSTALL_BINS}/opengl32sw.dll
-            ${QT_INSTALL_BINS}/d3dcompiler_47.dll
-            ${QT_INSTALL_BINS}/Qt5QmlModels.dll
-            ${QT_INSTALL_BINS}/Qt5QmlWorkerScript.dll
-            DESTINATION bin)
+    if (MUE_COMPILE_QT5_COMPAT)
+        install(FILES
+                ${PROJECT_SOURCE_DIR}/build/qt.conf
+                ${QtInstallLibraries}
+                ${QT_INSTALL_BINS}/libEGL.dll
+                ${QT_INSTALL_BINS}/libGLESv2.dll
+                ${QT_INSTALL_BINS}/opengl32sw.dll
+                ${QT_INSTALL_BINS}/d3dcompiler_47.dll
+                ${QT_INSTALL_BINS}/Qt5QmlModels.dll
+                ${QT_INSTALL_BINS}/Qt5QmlWorkerScript.dll
+                DESTINATION bin)
+    else()
+        install(FILES
+                ${PROJECT_SOURCE_DIR}/build/qt.conf
+                ${QtInstallLibraries}
+                #${QT_INSTALL_BINS}/libEGL.dll
+                #${QT_INSTALL_BINS}/libGLESv2.dll
+                ${QT_INSTALL_BINS}/opengl32sw.dll
+                ${QT_INSTALL_BINS}/d3dcompiler_47.dll
+                ${QT_INSTALL_BINS}/Qt6QuickControls2Impl.dll
+                ${QT_INSTALL_BINS}/Qt6QuickLayouts.dll
+                ${QT_INSTALL_BINS}/Qt6QmlModels.dll
+                ${QT_INSTALL_BINS}/Qt6QmlWorkerScript.dll
+                DESTINATION bin)
+    endif()
 
     install(FILES
             ${QT_INSTALL_PLUGINS}/iconengines/qsvgicon.dll
             DESTINATION bin/iconengines)
 
-    install(FILES
-            ${QT_INSTALL_PLUGINS}/imageformats/qjpeg.dll
-            ${QT_INSTALL_PLUGINS}/imageformats/qsvg.dll
-            ${QT_INSTALL_PLUGINS}/imageformats/qtiff.dll
-            DESTINATION bin/imageformats)
-
+    if (MUE_COMPILE_QT5_COMPAT)
+        install(FILES
+                ${QT_INSTALL_PLUGINS}/imageformats/qjpeg.dll
+                ${QT_INSTALL_PLUGINS}/imageformats/qsvg.dll
+                ${QT_INSTALL_PLUGINS}/imageformats/qtiff.dll
+                DESTINATION bin/imageformats)
+    else()
+        install(FILES
+                ${QT_INSTALL_PLUGINS}/imageformats/qjpeg.dll
+                ${QT_INSTALL_PLUGINS}/imageformats/qsvg.dll
+                DESTINATION bin/imageformats)
+    endif()
 
     install(FILES
             ${QT_INSTALL_PLUGINS}/platforms/qwindows.dll
             ${QT_INSTALL_PLUGINS}/platforms/qoffscreen.dll
             DESTINATION bin/platforms)
 
-    install(FILES
-            ${QT_INSTALL_PLUGINS}/printsupport/windowsprintersupport.dll
-            DESTINATION bin/printsupport)
+    if (MUE_COMPILE_QT5_COMPAT)
+        install(FILES
+                ${QT_INSTALL_PLUGINS}/printsupport/windowsprintersupport.dll
+                DESTINATION bin/printsupport)
+    endif()
 
     install(DIRECTORY
             ${QT_INSTALL_QML}
@@ -469,9 +497,15 @@ elseif(OS_IS_WASM)
 
     function(copy_html_js_launch_files target)
         set(APPNAME ${target})
-        configure_file("${_qt5Core_install_prefix}/plugins/platforms/wasm_shell.html" "public_html/${target}.qt.html")
-        configure_file("${_qt5Core_install_prefix}/plugins/platforms/qtloader.js" public_html/qtloader.js COPYONLY)
-        configure_file("${_qt5Core_install_prefix}/plugins/platforms/qtlogo.svg" public_html/qtlogo.svg COPYONLY)
+        if (MUE_COMPILE_QT5_COMPAT)
+            configure_file("${_qt5Core_install_prefix}/plugins/platforms/wasm_shell.html" "public_html/${target}.qt.html")
+            configure_file("${_qt5Core_install_prefix}/plugins/platforms/qtloader.js" public_html/qtloader.js COPYONLY)
+            configure_file("${_qt5Core_install_prefix}/plugins/platforms/qtlogo.svg" public_html/qtlogo.svg COPYONLY)
+        else()
+            configure_file("${_qt6Core_install_prefix}/plugins/platforms/wasm_shell.html" "public_html/${target}.qt.html")
+            configure_file("${_qt6Core_install_prefix}/plugins/platforms/qtloader.js" public_html/qtloader.js COPYONLY)
+            configure_file("${_qt6Core_install_prefix}/plugins/platforms/qtlogo.svg" public_html/qtlogo.svg COPYONLY)
+        endif()
     endfunction()
 
     copy_html_js_launch_files(mscore)

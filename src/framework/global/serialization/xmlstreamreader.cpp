@@ -23,6 +23,8 @@
 
 #include <cstring>
 
+#include "global/types/string.h"
+
 #include "thirdparty/tinyxml/tinyxml2.h"
 
 #include "log.h"
@@ -71,8 +73,30 @@ XmlStreamReader::~XmlStreamReader()
     delete m_xml;
 }
 
-void XmlStreamReader::setData(const ByteArray& data)
+void XmlStreamReader::setData(const ByteArray& data_)
 {
+    if (data_.size() < 4) {
+        LOGE() << "empty data";
+        return;
+    }
+
+    UtfCodec::Encoding enc = UtfCodec::xmlEncoding(data_);
+    if (enc == UtfCodec::Encoding::Unknown) {
+        LOGE() << "unknown encoding";
+        return;
+    }
+
+    if (enc == UtfCodec::Encoding::UTF_16BE) {
+        LOGE() << "unsupported encoding UTF-16BE";
+        return;
+    }
+
+    ByteArray data = data_; // no copy, implicit sharing
+    if (enc == UtfCodec::Encoding::UTF_16LE) {
+        String u16 = String::fromUtf16LE(data_);
+        data = u16.toUtf8();
+    }
+
     m_xml->doc.Clear();
     m_xml->err = m_xml->doc.Parse(reinterpret_cast<const char*>(data.constData()), data.size());
     m_token = m_xml->err == XML_SUCCESS ? TokenType::NoToken : TokenType::Invalid;

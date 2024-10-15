@@ -20,9 +20,15 @@
 
 set(MODULE uicomponents)
 
-set(MODULE_QRC uicomponents.qrc)
+if (MUE_COMPILE_QT5_COMPAT)
+    set(MODULE_QRC uicomponents.qrc graphicaleffects_qt5.qrc)
+else()
+    set(MODULE_QRC uicomponents.qrc graphicaleffects.qrc)
+endif()
 
 set(MODULE_QML_IMPORT ${CMAKE_CURRENT_LIST_DIR}/qml )
+
+include(${CMAKE_CURRENT_LIST_DIR}/view/treeview/treeview.cmake)
 
 set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/uicomponentsmodule.cpp
@@ -83,6 +89,7 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/view/widgetview.h
     ${CMAKE_CURRENT_LIST_DIR}/view/buttonboxmodel.h
     ${CMAKE_CURRENT_LIST_DIR}/view/buttonboxmodel.cpp
+    ${TREEVIEW_SRC}
     )
 
 if (OS_IS_MAC)
@@ -110,6 +117,7 @@ if (MUE_DISABLE_UI_MODALITY)
     set(MODULE_DEF ${MODULE_DEF} -DMUE_DISABLE_UI_MODALITY)
 endif()
 
+set(MODULE_USE_UNITY_NONE ON)
 include(SetupModule)
 
 

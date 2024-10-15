@@ -385,7 +385,7 @@ public:
     void setScore(Score* s) override;
     void setDotRelativeLine(int);
 
-    void setHeadHasParentheses(bool hasParentheses, bool addToLinked = true);
+    void setHeadHasParentheses(bool hasParentheses, bool addToLinked = true, bool generated = false);
     bool headHasParentheses() const { return m_hasHeadParentheses; }
 
     static SymId noteHead(int direction, NoteHeadGroup, NoteHeadType, int tpc, Key key, NoteHeadScheme scheme);
@@ -430,6 +430,7 @@ public:
 
     bool isPreBendStart() const;
     bool isGraceBendStart() const;
+    bool isContinuationOfBend() const;
 
     bool hasAnotherStraightAboveOrBelow(bool above) const;
 
@@ -446,6 +447,10 @@ public:
     bool isNoteName() const;
 
     void updateFrettingForTiesAndBends();
+    bool shouldHideFret() const;
+    bool shouldForceShowFret() const;
+
+    void setVisible(bool v) override;
 
     struct LayoutData : public EngravingItem::LayoutData {
         ld_field<bool> useTablature = { "[Note] useTablature", false };
@@ -472,7 +477,7 @@ private:
     void addSpanner(Spanner*);
     void removeSpanner(Spanner*);
     int concertPitchIdx() const;
-    void updateRelLine(int relLine, bool undoable);
+    void updateRelLine(int absLine, bool undoable);
 
     void normalizeLeftDragDelta(Segment* seg, EditData& ed, NoteEditData* ned);
 

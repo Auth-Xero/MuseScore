@@ -65,6 +65,7 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/allocator.h
     ${CMAKE_CURRENT_LIST_DIR}/dlib.h
     ${CMAKE_CURRENT_LIST_DIR}/iprocess.h
+    ${CMAKE_CURRENT_LIST_DIR}/isysteminfo.h
 
     ${CMAKE_CURRENT_LIST_DIR}/types/bytearray.cpp
     ${CMAKE_CURRENT_LIST_DIR}/types/bytearray.h
@@ -111,8 +112,9 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/serialization/xmlstreamreader.h
     ${CMAKE_CURRENT_LIST_DIR}/serialization/xmlstreamwriter.cpp
     ${CMAKE_CURRENT_LIST_DIR}/serialization/xmlstreamwriter.h
-    ${CMAKE_CURRENT_LIST_DIR}/thirdparty//tinyxml/tinyxml2.cpp
-    ${CMAKE_CURRENT_LIST_DIR}/thirdparty//tinyxml/tinyxml2.h
+    ${CMAKE_CURRENT_LIST_DIR}/thirdparty/tinyxml/tinyxml2.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/thirdparty/tinyxml/tinyxml2.h
+    ${CMAKE_CURRENT_LIST_DIR}/thirdparty/tinyxml/mu_patch.h
     ${CMAKE_CURRENT_LIST_DIR}/serialization/zipreader.cpp
     ${CMAKE_CURRENT_LIST_DIR}/serialization/zipreader.h
     ${CMAKE_CURRENT_LIST_DIR}/serialization/zipwriter.cpp
@@ -128,6 +130,7 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/serialization/xmldom.h
 
     ${CMAKE_CURRENT_LIST_DIR}/concurrency/taskscheduler.h
+    ${CMAKE_CURRENT_LIST_DIR}/concurrency/concurrent.h
 )
 
 if (GLOBAL_NO_INTERNAL)
@@ -151,6 +154,8 @@ else()
         ${CMAKE_CURRENT_LIST_DIR}/internal/invoker.h
         ${CMAKE_CURRENT_LIST_DIR}/internal/process.cpp
         ${CMAKE_CURRENT_LIST_DIR}/internal/process.h
+        ${CMAKE_CURRENT_LIST_DIR}/internal/systeminfo.cpp
+        ${CMAKE_CURRENT_LIST_DIR}/internal/systeminfo.h
 
         ${CMAKE_CURRENT_LIST_DIR}/io/internal/filesystem.cpp
         ${CMAKE_CURRENT_LIST_DIR}/io/internal/filesystem.h
@@ -221,6 +226,6 @@ endif()
 
 include(SetupModule)
 
-if (MUE_BUILD_UNIT_TESTS)
+if (MUE_BUILD_GLOBAL_TESTS)
     add_subdirectory(tests)
 endif()

@@ -76,6 +76,7 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/api/tie.h
     ${CMAKE_CURRENT_LIST_DIR}/api/util.cpp
     ${CMAKE_CURRENT_LIST_DIR}/api/util.h
+    ${CMAKE_CURRENT_LIST_DIR}/api/qmllistproperty.h
     )
 
 set(MODULE_LINK
@@ -85,6 +86,6 @@ set(MODULE_LINK
 
 include(SetupModule)
 
-if (MUE_BUILD_UNIT_TESTS)
+if (MUE_BUILD_PLUGINS_TESTS)
     add_subdirectory(tests)
 endif()

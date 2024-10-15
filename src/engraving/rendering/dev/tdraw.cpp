@@ -124,6 +124,7 @@
 #include "dom/symbol.h"
 #include "dom/systemdivider.h"
 #include "dom/systemtext.h"
+#include "dom/soundflag.h"
 
 #include "dom/tempotext.h"
 #include "dom/text.h"
@@ -132,7 +133,6 @@
 #include "dom/textlinebase.h"
 #include "dom/tie.h"
 #include "dom/timesig.h"
-#include "dom/tremolo.h"
 #include "dom/tremolosinglechord.h"
 #include "dom/tremolotwochord.h"
 #include "dom/tremolobar.h"
@@ -341,6 +341,8 @@ void TDraw::drawItem(const EngravingItem* item, draw::Painter* painter)
     case ElementType::SYSTEM_DIVIDER:       draw(item_cast<const SystemDivider*>(item), painter);
         break;
     case ElementType::SYSTEM_TEXT:          draw(item_cast<const SystemText*>(item), painter);
+        break;
+    case ElementType::SOUND_FLAG:           draw(item_cast<const SoundFlag*>(item), painter);
         break;
 
     case ElementType::TAB_DURATION_SYMBOL:  draw(item_cast<const TabDurationSymbol*>(item), painter);
@@ -816,7 +818,7 @@ void TDraw::draw(const BarLine* item, Painter* painter)
     break;
     }
     Segment* s = item->segment();
-    if (s && s->isEndBarLineType() && !item->score()->printing() && item->score()->showUnprintable()) {
+    if (s && s->isEndBarLineType() && !item->score()->printing()) {
         Measure* m = s->measure();
         if (m->isIrregular() && item->score()->markIrregularMeasures() && !m->isMMRest()) {
             painter->setPen(EngravingItem::engravingConfiguration()->formattingMarksColor());
@@ -2221,17 +2223,11 @@ void TDraw::draw(const Note* item, Painter* painter)
 
     // tablature
     if (tablature) {
-        if (item->displayFret() == Note::DisplayFretOption::Hide) {
+        if (item->displayFret() == Note::DisplayFretOption::Hide || item->shouldHideFret()) {
             return;
         }
         const Staff* st = item->staff();
         const StaffType* tab = st->staffTypeForElement(item);
-        if (item->tieBack() && !tab->showBackTied()) {
-            if (item->chord()->measure()->system() == item->tieBack()->startNote()->chord()->measure()->system() && item->el().empty()) {
-                // fret should be hidden, so return without drawing it
-                return;
-            }
-        }
         // draw background, if required (to hide a segment of string line or to show a fretting conflict)
         if (!tab->linesThrough() || item->fretConflict()) {
             double d  = item->spatium() * .1;
@@ -2264,11 +2260,10 @@ void TDraw::draw(const Note* item, Painter* painter)
         painter->setFont(f);
         painter->setPen(c);
         double startPosX = ldata->bbox().x();
-        if (item->ghost() && config->tablatureParenthesesZIndexWorkaround()) {
-            startPosX += item->symWidth(SymId::noteheadParenthesisLeft);
-        }
 
-        painter->drawText(PointF(startPosX, tab->fretFontYOffset() * item->magS()), item->fretString());
+        const MStyle& style = item->style();
+        double yOffset = tab->fretFontYOffset(style);
+        painter->drawText(PointF(startPosX, yOffset * item->magS()), item->fretString());
     }
     // NOT tablature
     else {
@@ -2632,7 +2627,15 @@ void TDraw::draw(const StaffState* item, Painter* painter)
 void TDraw::draw(const StaffText* item, Painter* painter)
 {
     TRACE_DRAW_ITEM;
+
     drawTextBase(item, painter);
+
+    if (item->hasSoundFlag()) {
+        SoundFlag* soundFlag = item->soundFlag();
+        soundFlag->setIconFontSize(item->font().pointSizeF() * MScore::pixelRatio);
+
+        draw(item->soundFlag(), painter);
+    }
 }
 
 void TDraw::draw(const StaffTypeChange* item, Painter* painter)
@@ -2809,10 +2812,30 @@ void TDraw::draw(const StringTunings* item, draw::Painter* painter)
 void TDraw::draw(const Symbol* item, Painter* painter)
 {
     TRACE_DRAW_ITEM;
-    if (!item->isNoteDot() || !item->staff()->isTabStaff(item->tick())) {
+    bool tabStaff = item->staff() ? item->staff()->isTabStaff(item->tick()) : false;
+    if (tabStaff && (item->sym() == SymId::noteheadParenthesisLeft || item->sym() == SymId::noteheadParenthesisRight)) {
+        // Draw background for parentheses on TAB staves
+        auto config = item->engravingConfiguration();
+        const Symbol::LayoutData* ldata = item->ldata();
+        double d = item->spatium() * .1;
+        RectF bb = RectF(ldata->bbox().x() - d,
+                         ldata->bbox().y() - d,
+                         ldata->bbox().width() + 2 * d,
+                         ldata->bbox().height() + 2 * d
+                         );
+        if (!item->score()->getViewer().empty()) {
+            for (MuseScoreView* view : item->score()->getViewer()) {
+                view->drawBackground(painter, bb);
+            }
+        } else {
+            painter->fillRect(bb, config->noteBackgroundColor());
+        }
+    }
+
+    if (!item->isNoteDot() || !tabStaff) {
         painter->setPen(item->curColor());
         if (item->scoreFont()) {
-            item->scoreFont()->draw(item->sym(), painter, item->magS(), PointF());
+            item->scoreFont()->draw(item->sym(), painter, item->magS() * item->symbolsSize(), PointF(), item->symAngle());
         } else {
             item->drawSymbol(item->sym(), painter);
         }
@@ -2839,6 +2862,24 @@ void TDraw::draw(const SystemText* item, Painter* painter)
 {
     TRACE_DRAW_ITEM;
     drawTextBase(item, painter);
+}
+
+void TDraw::draw(const SoundFlag* item, draw::Painter* painter)
+{
+    TRACE_DRAW_ITEM;
+
+    if (item->shouldHide()) {
+        return;
+    }
+
+    painter->setNoPen();
+    painter->setBrush(item->iconBackgroundColor());
+    painter->drawEllipse(item->ldata()->bbox());
+
+    mu::draw::Font f(item->iconFont());
+    painter->setFont(f);
+    painter->setPen(!item->selected() ? item->curColor() : Color::WHITE);
+    painter->drawText(item->ldata()->bbox(), draw::AlignCenter, Char(item->iconCode()));
 }
 
 void TDraw::draw(const TabDurationSymbol* item, Painter* painter)
@@ -2941,23 +2982,23 @@ void TDraw::draw(const TieSegment* item, Painter* painter)
         painter->setBrush(Brush(pen.color()));
         pen.setCapStyle(PenCapStyle::RoundCap);
         pen.setJoinStyle(PenJoinStyle::RoundJoin);
-        pen.setWidthF(item->style().styleMM(Sid::SlurEndWidth) * mag);
+        pen.setWidthF(item->style().styleMM(Sid::TieEndWidth) * mag);
         break;
     case SlurStyleType::Dotted:
         painter->setBrush(BrushStyle::NoBrush);
         pen.setCapStyle(PenCapStyle::RoundCap);           // True dots
         pen.setDashPattern(dotted);
-        pen.setWidthF(item->style().styleMM(Sid::SlurDottedWidth) * mag);
+        pen.setWidthF(item->style().styleMM(Sid::TieDottedWidth) * mag);
         break;
     case SlurStyleType::Dashed:
         painter->setBrush(BrushStyle::NoBrush);
         pen.setDashPattern(dashed);
-        pen.setWidthF(item->style().styleMM(Sid::SlurDottedWidth) * mag);
+        pen.setWidthF(item->style().styleMM(Sid::TieDottedWidth) * mag);
         break;
     case SlurStyleType::WideDashed:
         painter->setBrush(BrushStyle::NoBrush);
         pen.setDashPattern(wideDashed);
-        pen.setWidthF(item->style().styleMM(Sid::SlurDottedWidth) * mag);
+        pen.setWidthF(item->style().styleMM(Sid::TieDottedWidth) * mag);
         break;
     case SlurStyleType::Undefined:
         break;

@@ -61,7 +61,6 @@
 #include "engraving/dom/text.h"
 #include "engraving/dom/tie.h"
 #include "engraving/dom/timesig.h"
-#include "engraving/dom/tremolo.h"
 #include "engraving/dom/tuplet.h"
 #include "engraving/dom/volta.h"
 
@@ -1330,7 +1329,7 @@ bool MeiExporter::writeRest(const Rest* rest, const Staff* staff)
 
 /**
  * Write a syl with the corresponding text syllable and the elision type.
- * The elision type is passed to the Convert methods that deals with the adjustment of @con and @worpos.
+ * The elision type is passed to the Convert methods that deals with the adjustment of @con and @wordpos.
  */
 
 bool MeiExporter::writeSyl(const Lyrics* lyrics, const String& text, ElisionType elision)

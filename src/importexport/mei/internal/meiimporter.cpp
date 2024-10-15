@@ -62,7 +62,6 @@
 #include "engraving/dom/textline.h"
 #include "engraving/dom/tie.h"
 #include "engraving/dom/timesig.h"
-#include "engraving/dom/tremolo.h"
 #include "engraving/dom/tuplet.h"
 #include "engraving/dom/utils.h"
 
@@ -337,7 +336,7 @@ ChordRest* MeiImporter::addChordRest(pugi::xml_node node, Measure* measure, int 
 }
 
 /**
- * Add grace notes to a ChordRest When a grace group was previously read and added to MeiImpoter::m_graceNotes
+ * Add grace notes to a ChordRest When a grace group was previously read and added to MeiImporter::m_graceNotes
  * Ignore (delete) the grace notes if the ChordRest is a Rest.
  * Look at m_graceNoteType for setting the acciaccatura note type (when grace notes precede only)
  */
@@ -936,7 +935,7 @@ bool MeiImporter::readScore(pugi::xml_node root)
 
 /**
  * Read a scoreDef (initial or intermediate).
- * For the intial scoreDef, also tries to build the part structure from the scoreDef relying on staffGrp@label and staffDef@label.
+ * For the initial scoreDef, also tries to build the part structure from the scoreDef relying on staffGrp@label and staffDef@label.
  * Sets the time signature and key signature to the global m_timeSigs and m_keySigs maps.
  * Uses the SCOREDEF_IDX index position for global (scoreDef) time signature and key signatures.
  * Since the map are ordered, these will have priority over the ones read in MeiImporter::readStaffDef.
@@ -1588,7 +1587,7 @@ bool MeiImporter::readArtic(pugi::xml_node articNode, Chord* chord)
 
     Articulation* articulation = static_cast<Articulation*>(this->addToChordRest(meiArtic, nullptr, chord));
     if (!articulation) {
-        // Warning message given in MeiExpoter::addSpanner
+        // Warning message given in MeiImporter::addSpanner
         return true;
     }
 
@@ -2157,7 +2156,7 @@ bool MeiImporter::readArpeg(pugi::xml_node arpegNode, Measure* measure)
 
     Arpeggio* arpeggio = static_cast<Arpeggio*>(this->addToChordRest(meiArpeg, measure));
     if (!arpeggio) {
-        // Warning message given in MeiExpoter::addToChordRest
+        // Warning message given in MeiImporter::addToChordRest
         return true;
     }
 
@@ -2187,7 +2186,7 @@ bool MeiImporter::readBreath(pugi::xml_node breathNode, Measure* measure)
 
     Breath* breath = static_cast<Breath*>(this->addAnnotation(meiBreath, measure));
     if (!breath) {
-        // Warning message given in MeiExpoter::addAnnotation
+        // Warning message given in MeiImporter::addAnnotation
         return true;
     }
 
@@ -2212,7 +2211,7 @@ bool MeiImporter::readCaesura(pugi::xml_node caesuraNode, Measure* measure)
 
     Breath* breath = static_cast<Breath*>(this->addAnnotation(meiCaesura, measure));
     if (!breath) {
-        // Warning message given in MeiExpoter::addAnnotation
+        // Warning message given in MeiImporter::addAnnotation
         return true;
     }
 
@@ -2242,14 +2241,14 @@ bool MeiImporter::readDir(pugi::xml_node dirNode, Measure* measure)
     if (Convert::isDirWithExt(meiDir)) {
         TextLineBase* textLineBase = static_cast<TextLineBase*>(this->addSpanner(meiDir, measure, dirNode));
         if (!textLineBase) {
-            // Warning message given in MeiExpoter::addSpanner
+            // Warning message given in MeiImporter::addSpanner
             return true;
         }
         Convert::dirFromMEI(textLineBase, meiLines, meiDir, warning);
     } else {
         TextBase* textBase = static_cast<TextBase*>(this->addAnnotation(meiDir, measure));
         if (!textBase) {
-            // Warning message given in MeiExpoter::addAnnotation
+            // Warning message given in MeiImporter::addAnnotation
             return true;
         }
         Convert::dirFromMEI(textBase, meiLines, meiDir, warning);
@@ -2274,7 +2273,7 @@ bool MeiImporter::readDynam(pugi::xml_node dynamNode, Measure* measure)
 
     Dynamic* dynamic = static_cast<Dynamic*>(this->addAnnotation(meiDynam, measure));
     if (!dynamic) {
-        // Warning message given in MeiExpoter::addAnnotation
+        // Warning message given in MeiImporter::addAnnotation
         return true;
     }
 
@@ -2341,7 +2340,7 @@ bool MeiImporter::readFb(pugi::xml_node harmNode, Measure* measure)
 
     FiguredBass* figuredBass = static_cast<FiguredBass*>(this->addAnnotation(meiHarm, measure));
     if (!figuredBass) {
-        // Warning message given in MeiExpoter::addAnnotation
+        // Warning message given in MeiImporter::addAnnotation
         return true;
     }
     // Needs to be registered by hand because we pass meiHarm to MeiImporter::addAnnotation
@@ -2392,7 +2391,7 @@ bool MeiImporter::readFermata(pugi::xml_node fermataNode, Measure* measure)
     }
 
     if (!fermata) {
-        // Warning message given in MeiExpoter::addAnnotation
+        // Warning message given in MeiImporter::addAnnotation
         return true;
     }
 
@@ -2417,7 +2416,7 @@ bool MeiImporter::readHairpin(pugi::xml_node hairpinNode, Measure* measure)
 
     Hairpin* hairpin = static_cast<Hairpin*>(this->addSpanner(meiHairpin, measure, hairpinNode));
     if (!hairpin) {
-        // Warning message given in MeiExpoter::addSpanner
+        // Warning message given in MeiImporter::addSpanner
         return true;
     }
 
@@ -2443,7 +2442,7 @@ bool MeiImporter::readHarm(pugi::xml_node harmNode, Measure* measure)
 
     Harmony* harmony = static_cast<Harmony*>(this->addAnnotation(meiHarm, measure));
     if (!harmony) {
-        // Warning message given in MeiExpoter::addAnnotation
+        // Warning message given in MeiImporter::addAnnotation
         return true;
     }
 
@@ -2472,7 +2471,7 @@ bool MeiImporter::readMordent(pugi::xml_node mordentNode, Measure* measure)
 
     Ornament* ornament = static_cast<Ornament*>(this->addToChordRest(meiMordent, measure));
     if (!ornament) {
-        // Warning message given in MeiExpoter::addToChordRest
+        // Warning message given in MeiImporter::addToChordRest
         return true;
     }
 
@@ -2498,7 +2497,7 @@ bool MeiImporter::readOctave(pugi::xml_node octaveNode, Measure* measure)
 
     Ottava* ottava = static_cast<Ottava*>(this->addSpanner(meiOctave, measure, octaveNode));
     if (!ottava) {
-        // Warning message given in MeiExpoter::addSpanner
+        // Warning message given in MeiImporter::addSpanner
         return true;
     }
 
@@ -2523,7 +2522,7 @@ bool MeiImporter::readOrnam(pugi::xml_node ornamNode, Measure* measure)
 
     Ornament* ornament = static_cast<Ornament*>(this->addToChordRest(meiOrnam, measure));
     if (!ornament) {
-        // Warning message given in MeiExpoter::addToChordRest
+        // Warning message given in MeiImporter::addToChordRest
         return true;
     }
 
@@ -2549,7 +2548,7 @@ bool MeiImporter::readPedal(pugi::xml_node pedalNode, Measure* measure)
 
     Pedal* pedal = static_cast<Pedal*>(this->addSpanner(meiPedal, measure, pedalNode));
     if (!pedal) {
-        // Warning message given in MeiExpoter::addSpanner
+        // Warning message given in MeiImporter::addSpanner
         return true;
     }
 
@@ -2605,7 +2604,7 @@ bool MeiImporter::readSlur(pugi::xml_node slurNode, Measure* measure)
 
     Slur* slur = static_cast<Slur*>(this->addSpanner(meiSlur, measure, slurNode));
     if (!slur) {
-        // Warning message given in MeiExpoter::addSpanner
+        // Warning message given in MeiImporter::addSpanner
         return true;
     }
 
@@ -2630,7 +2629,7 @@ bool MeiImporter::readTempo(pugi::xml_node tempoNode, Measure* measure)
 
     TempoText* tempoText = static_cast<TempoText*>(this->addAnnotation(meiTempo, measure));
     if (!tempoText) {
-        // Warning message given in MeiExpoter::addAnnotation
+        // Warning message given in MeiImporter::addAnnotation
         return true;
     }
 
@@ -2659,7 +2658,7 @@ bool MeiImporter::readTie(pugi::xml_node tieNode, Measure* measure)
     // We do not use addSpanner here because Tie object are added directly to the start and end Note objects
     Note* startNote = this->findStartNote(meiTie);
     if (!startNote) {
-        // Here we could detect if a if its a tied chord (for files not exported from MuseScore)
+        // Here we could detect if it's a tied chord (for files not exported from MuseScore)
         // We would need a dedicated list and tie each note once the second chord has been found.
         return true;
     }
@@ -2694,7 +2693,7 @@ bool MeiImporter::readTrill(pugi::xml_node trillNode, Measure* measure)
 
     Ornament* ornament = static_cast<Ornament*>(this->addToChordRest(meiTrill, measure));
     if (!ornament) {
-        // Warning message given in MeiExpoter::addToChordRest
+        // Warning message given in MeiImporter::addToChordRest
         return true;
     }
 
@@ -2720,7 +2719,7 @@ bool MeiImporter::readTurn(pugi::xml_node turnNode, Measure* measure)
 
     Ornament* ornament = static_cast<Ornament*>(this->addToChordRest(meiTurn, measure));
     if (!ornament) {
-        // Warning message given in MeiExpoter::addToChordRest
+        // Warning message given in MeiImporter::addToChordRest
         return true;
     }
 
@@ -2829,7 +2828,7 @@ bool MeiImporter::buildIdMap(pugi::xml_node scoreNode)
 
 /**
  * Create a mapping for <staff> `@n` and <layer> `@n`.
- * Usefull only when reading MEI files where the sequence of `@n` is not starting from 1 or not sequential.
+ * Useful only when reading MEI files where the sequence of `@n` is not starting from 1 or not sequential.
  * Not really useful when reading MEI files generated from MuseScore since these will have sequential numbers starting with 1.
  */
 

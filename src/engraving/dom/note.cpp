@@ -63,7 +63,7 @@
 #include "stafftype.h"
 #include "stringdata.h"
 #include "tie.h"
-#include "tremolo.h"
+
 #include "undo.h"
 #include "utils.h"
 
@@ -1157,7 +1157,7 @@ double Note::headHeight() const
 double Note::tabHeadHeight(const StaffType* tab) const
 {
     if (tab && m_fret != INVALID_FRET_INDEX && m_string != INVALID_STRING_INDEX) {
-        return tab->fretBoxH() * magS();
+        return tab->fretBoxH(style()) * magS();
     }
     return headHeight();
 }
@@ -1269,6 +1269,10 @@ void Note::add(EngravingItem* e)
     case ElementType::SYMBOL: {
         Symbol* s = toSymbol(e);
         SymId symbolId = toSymbol(e)->sym();
+        if ((symbolId == SymId::noteheadParenthesisLeft && m_leftParenthesis)
+            || (symbolId == SymId::noteheadParenthesisRight && m_rightParenthesis)) {
+            break;
+        }
 
         if (symbolId == SymId::noteheadParenthesisLeft) {
             m_leftParenthesis = s;
@@ -1403,6 +1407,83 @@ void Note::updateFrettingForTiesAndBends()
 
     setString(prevNote->string());
     setFret(prevNote->fret());
+}
+
+bool Note::shouldHideFret() const
+{
+    if (!tieBack() || shouldForceShowFret() || !staffType()->isTabStaff()) {
+        return false;
+    }
+
+    if (isContinuationOfBend() && !rtick().isZero()) {
+        return true;
+    }
+
+    ShowTiedFret showTiedFret = style().value(Sid::tabShowTiedFret).value<ShowTiedFret>();
+    if (showTiedFret == ShowTiedFret::TIE_AND_FRET) {
+        return false;
+    }
+
+    ParenthesizeTiedFret parenthTiedFret = style().value(Sid::tabParenthesizeTiedFret).value<ParenthesizeTiedFret>();
+    if (parenthTiedFret == ParenthesizeTiedFret::NEVER || !rtick().isZero()) {
+        return true;
+    }
+
+    if (parenthTiedFret == ParenthesizeTiedFret::START_OF_MEASURE) {
+        return false;
+    }
+
+    const Measure* measure = findMeasure();
+    bool isStartOfSystem = measure && measure->system() && measure->isFirstInSystem();
+
+    return !isStartOfSystem;
+}
+
+bool Note::shouldForceShowFret() const
+{
+    if (!style().styleB(Sid::parenthesizeTiedFretIfArticulation)) {
+        return false;
+    }
+
+    Chord* ch = chord();
+    if (!ch) {
+        return false;
+    }
+
+    auto hasTremoloBar = [&] () {
+        for (EngravingItem* item : ch->segment()->annotations()) {
+            if (item && item->isTremoloBar() && item->track() == track()) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    auto hasVibratoLine = [&] () {
+        auto spanners = score()->spannerMap().findOverlapping(tick().ticks(), (tick() + ch->actualTicks()).ticks());
+        for (auto interval : spanners) {
+            Spanner* sp = interval.value;
+            if (sp->isVibrato() && sp->startElement() == ch) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    bool startsNonBendSpanner = !spannerFor().empty() && !bendFor();
+
+    return !ch->articulations().empty() || ch->chordLine() || startsNonBendSpanner || hasTremoloBar() || hasVibratoLine();
+}
+
+void Note::setVisible(bool v)
+{
+    EngravingItem::setVisible(v);
+    if (m_leftParenthesis) {
+        m_leftParenthesis->setVisible(v);
+    }
+    if (m_rightParenthesis) {
+        m_rightParenthesis->setVisible(v);
+    }
 }
 
 void Note::setupAfterRead(const Fraction& ctxTick, bool pasteMode)
@@ -1755,7 +1836,7 @@ EngravingItem* Note::drop(EditData& data)
             return ch->drop(data);
             break;
         case ActionIconType::PARENTHESES:
-            setHeadHasParentheses(true);
+            score()->cmdAddParentheses(this);
             break;
         case ActionIconType::STANDARD_BEND:
             score()->addGuitarBend(GuitarBendType::BEND, this);
@@ -1897,7 +1978,7 @@ EngravingItem* Note::drop(EditData& data)
     return 0;
 }
 
-void Note::setHeadHasParentheses(bool hasParentheses, bool addToLinked)
+void Note::setHeadHasParentheses(bool hasParentheses, bool addToLinked, bool generated)
 {
     if (hasParentheses == m_hasHeadParentheses) {
         return;
@@ -1907,21 +1988,23 @@ void Note::setHeadHasParentheses(bool hasParentheses, bool addToLinked)
 
     if (hasParentheses) {
         if (!m_leftParenthesis) {
-            m_leftParenthesis = new Symbol(this);
-            m_leftParenthesis->setSym(SymId::noteheadParenthesisLeft);
-            m_leftParenthesis->setParent(this);
-            score()->undoAddElement(m_leftParenthesis, addToLinked);
+            Symbol* leftParen = new Symbol(this);
+            leftParen->setSym(SymId::noteheadParenthesisLeft);
+            leftParen->setParent(this);
+            leftParen->setGenerated(generated);
+            score()->undoAddElement(leftParen, addToLinked);
         }
 
         if (!m_rightParenthesis) {
-            m_rightParenthesis = new Symbol(this);
-            m_rightParenthesis->setSym(SymId::noteheadParenthesisRight);
-            m_rightParenthesis->setParent(this);
-            score()->undoAddElement(m_rightParenthesis, addToLinked);
+            Symbol* rightParen = new Symbol(this);
+            rightParen->setSym(SymId::noteheadParenthesisRight);
+            rightParen->setParent(this);
+            rightParen->setGenerated(generated);
+            score()->undoAddElement(rightParen, addToLinked);
         }
     } else {
-        score()->undoRemoveElement(m_leftParenthesis);
-        score()->undoRemoveElement(m_rightParenthesis);
+        score()->undoRemoveElement(m_leftParenthesis, addToLinked);
+        score()->undoRemoveElement(m_rightParenthesis, addToLinked);
         assert(m_leftParenthesis == nullptr);
         assert(m_rightParenthesis == nullptr);
     }
@@ -2006,9 +2089,9 @@ static bool hasAlteredUnison(Note* note)
 {
     const auto& chordNotes = note->chord()->notes();
     AccidentalVal accVal = tpc2alter(note->tpc());
-    int relLine = absStep(note->tpc(), note->epitch());
-    return std::find_if(chordNotes.begin(), chordNotes.end(), [note, accVal, relLine](Note* n) {
-        return n != note && !n->hidden() && absStep(n->tpc(), n->epitch()) == relLine && tpc2alter(n->tpc()) != accVal;
+    int absLine = absStep(note->tpc(), note->epitch());
+    return std::find_if(chordNotes.begin(), chordNotes.end(), [note, accVal, absLine](Note* n) {
+        return n != note && !n->hidden() && absStep(n->tpc(), n->epitch()) == absLine && tpc2alter(n->tpc()) != accVal;
     }) != chordNotes.end();
 }
 
@@ -2019,7 +2102,7 @@ static bool hasAlteredUnison(Note* note)
 
 void Note::updateAccidental(AccidentalState* as)
 {
-    int relLine = absStep(tpc(), epitch());
+    int absLine = absStep(tpc(), epitch());
 
     // don't touch accidentals that don't concern tpc such as
     // quarter tones
@@ -2029,14 +2112,14 @@ void Note::updateAccidental(AccidentalState* as)
 
         AccidentalVal accVal = tpc2alter(tpc());
         bool error = false;
-        int eRelLine = absStep(tpc(), epitch());
-        AccidentalVal relLineAccVal = as->accidentalVal(eRelLine, error);
+        int eAbsLine = absStep(tpc(), epitch());
+        AccidentalVal absLineAccVal = as->accidentalVal(eAbsLine, error);
         if (error) {
             LOGD("error accidentalVal()");
             return;
         }
-        if ((accVal != relLineAccVal) || hidden() || as->tieContext(eRelLine) || as->forceRestateAccidental(eRelLine)) {
-            as->setAccidentalVal(eRelLine, accVal, m_tieBack != 0 && m_accidental == 0);
+        if ((accVal != absLineAccVal) || hidden() || as->tieContext(eAbsLine) || as->forceRestateAccidental(eAbsLine)) {
+            as->setAccidentalVal(eAbsLine, accVal, m_tieBack != 0 && m_accidental == 0);
             acci = Accidental::value2subtype(accVal);
             // if previous tied note has same tpc, don't show accidental
             if (m_tieBack && m_tieBack->startNote()->tpc1() == tpc1()) {
@@ -2088,11 +2171,11 @@ void Note::updateAccidental(AccidentalState* as)
         // for now, at least change state to natural, so subsequent notes playback as might be expected
         // this is an incompatible change, but better to break it for 2.0 than wait until later
         AccidentalVal accVal = Accidental::subtype2value(m_accidental->accidentalType());
-        as->setAccidentalVal(relLine, accVal, m_tieBack != 0 && m_accidental == 0);
+        as->setAccidentalVal(absLine, accVal, m_tieBack != 0 && m_accidental == 0);
     }
 
-    as->setForceRestateAccidental(relLine, false);
-    updateRelLine(relLine, true);
+    as->setForceRestateAccidental(absLine, false);
+    updateRelLine(absLine, true);
 }
 
 //---------------------------------------------------------
@@ -2631,10 +2714,10 @@ void Note::horizontalDrag(EditData& ed)
 //---------------------------------------------------------
 //   updateRelLine
 //    calculate the real note line depending on clef,
-//    _line is the absolute line
+//    absLine is the absolute line
 //---------------------------------------------------------
 
-void Note::updateRelLine(int relLine, bool undoable)
+void Note::updateRelLine(int absLine, bool undoable)
 {
     if (!staff()) {
         return;
@@ -2650,7 +2733,7 @@ void Note::updateRelLine(int relLine, bool undoable)
         return;
     }
     ClefType clef = staff->clef(chord()->tick());
-    int line      = relStep(relLine, clef);
+    int line      = relStep(absLine, clef);
 
     if (undoable && (m_line != INVALID_LINE) && (line != m_line)) {
         undoChangeProperty(Pid::LINE, line);
@@ -2669,8 +2752,8 @@ void Note::updateRelLine(int relLine, bool undoable)
 
 void Note::updateLine()
 {
-    int relLine = absStep(tpc(), epitch());
-    updateRelLine(relLine, false);
+    int absLine = absStep(tpc(), epitch());
+    updateRelLine(absLine, false);
 }
 
 //---------------------------------------------------------
@@ -2816,11 +2899,19 @@ bool Note::setProperty(Pid propertyId, const PropertyValue& v)
         break;
     case Pid::HEAD_HAS_PARENTHESES:
         setHeadHasParentheses(v.toBool());
+        if (links()) {
+            for (EngravingObject* scoreElement : *links()) {
+                Note* note = toNote(scoreElement);
+                Staff* linkedStaff = note ? note->staff() : nullptr;
+                if (linkedStaff && linkedStaff->isTabStaff(tick())) {
+                    note->setGhost(v.toBool());
+                }
+            }
+        }
         break;
     case Pid::DOT_POSITION:
         setUserDotPosition(v.value<DirectionV>());
-        triggerLayout();
-        return true;
+        break;
     case Pid::HEAD_SCHEME:
         setHeadScheme(v.value<NoteHeadScheme>());
         break;
@@ -2856,6 +2947,11 @@ bool Note::setProperty(Pid propertyId, const PropertyValue& v)
         break;
     case Pid::DEAD:
         setDeadNote(v.toBool());
+        if (!staff()->isDrumStaff(tick())) {
+            NoteHeadGroup head
+                = (m_deadNote && m_headGroup != NoteHeadGroup::HEAD_CROSS) ? NoteHeadGroup::HEAD_CROSS : NoteHeadGroup::HEAD_NORMAL;
+            setHeadGroup(head);
+        }
         break;
     case Pid::HEAD_TYPE:
         setHeadType(v.value<NoteHeadType>());
@@ -3614,6 +3710,25 @@ bool Note::isGraceBendStart() const
     return bend && bend->type() == GuitarBendType::GRACE_NOTE_BEND;
 }
 
+bool Note::isContinuationOfBend() const
+{
+    if (bendBack()) {
+        return true;
+    }
+
+    Tie* tie = tieBack();
+    Note* note = nullptr;
+    while (tie && tie->startNote()) {
+        note = tie->startNote();
+        if (note->bendBack()) {
+            return true;
+        }
+        tie = note->tieBack();
+    }
+
+    return false;
+}
+
 bool Note::hasAnotherStraightAboveOrBelow(bool above) const
 {
     if (!chord()) {
@@ -3631,7 +3746,7 @@ bool Note::hasAnotherStraightAboveOrBelow(bool above) const
         if (note == this) {
             continue;
         }
-        if (abs(note->pos().x() - pos().x()) > limitDiff) {
+        if (std::fabs(note->pos().x() - pos().x()) > limitDiff) {
             return false;
         }
         if ((above && note->line() < m_line) || (!above && note->line() > m_line)) {

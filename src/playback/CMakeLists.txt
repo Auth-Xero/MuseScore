@@ -57,6 +57,8 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/view/internal/auxsenditem.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/internal/auxsenditem.h
     ${CMAKE_CURRENT_LIST_DIR}/view/internal/msbasicpresetscategories.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/internal/soundflag/soundflagsettingsmodel.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/view/internal/soundflag/soundflagsettingsmodel.h
     ${CMAKE_CURRENT_LIST_DIR}/view/mixerpanelmodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/mixerpanelmodel.h
     ${CMAKE_CURRENT_LIST_DIR}/view/mixerpanelcontextmenumodel.cpp
@@ -68,5 +70,9 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/view/soundprofilesmodel.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/soundprofilesmodel.h
     )
+
+if (MUE_BUILD_PLAYBACK_TESTS)
+    add_subdirectory(tests)
+endif()
 
 include(${PROJECT_SOURCE_DIR}/build/module.cmake)

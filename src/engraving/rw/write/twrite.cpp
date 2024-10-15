@@ -136,6 +136,7 @@
 #include "dom/system.h"
 #include "dom/systemdivider.h"
 #include "dom/systemtext.h"
+#include "dom/soundflag.h"
 
 #include "dom/tempotext.h"
 #include "dom/text.h"
@@ -144,7 +145,6 @@
 #include "dom/textlinebase.h"
 #include "dom/tie.h"
 #include "dom/timesig.h"
-#include "dom/tremolo.h"
 #include "dom/tremolosinglechord.h"
 #include "dom/tremolotwochord.h"
 #include "dom/tremolobar.h"
@@ -320,6 +320,8 @@ void TWrite::writeItem(const EngravingItem* item, XmlWriter& xml, WriteContext& 
         break;
     case ElementType::SYSTEM_TEXT:  write(item_cast<const SystemText*>(item), xml, ctx);
         break;
+    case ElementType::SOUND_FLAG:   write(item_cast<const SoundFlag*>(item), xml, ctx);
+        break;
     case ElementType::TEMPO_TEXT:   write(item_cast<const TempoText*>(item), xml, ctx);
         break;
     case ElementType::TEXT:         write(item_cast<const Text*>(item), xml, ctx);
@@ -360,7 +362,7 @@ void TWrite::writeItems(const ElementList& items, XmlWriter& xml, WriteContext& 
     }
 }
 
-void TWrite::writeProperty(const EngravingItem* item, XmlWriter& xml, Pid pid)
+void TWrite::writeProperty(const EngravingItem* item, XmlWriter& xml, Pid pid, bool force)
 {
     if (item->isStyled(pid)) {
         return;
@@ -371,7 +373,7 @@ void TWrite::writeProperty(const EngravingItem* item, XmlWriter& xml, Pid pid)
         return;
     }
     PropertyFlags f = item->propertyFlags(pid);
-    PropertyValue d = (f != PropertyFlags::STYLED) ? item->propertyDefault(pid) : PropertyValue();
+    PropertyValue d = !force && (f != PropertyFlags::STYLED) ? item->propertyDefault(pid) : PropertyValue();
 
     if (pid == Pid::FONT_STYLE) {
         FontStyle ds = FontStyle(d.isValid() ? d.toInt() : 0);
@@ -743,7 +745,8 @@ void TWrite::writeProperties(const Box* item, XmlWriter& xml, WriteContext& ctx)
         Pid::BOX_HEIGHT, Pid::BOX_WIDTH, Pid::TOP_GAP, Pid::BOTTOM_GAP,
         Pid::LEFT_MARGIN, Pid::RIGHT_MARGIN, Pid::TOP_MARGIN, Pid::BOTTOM_MARGIN, Pid::BOX_AUTOSIZE
     }) {
-        writeProperty(item, xml, id);
+        bool force = (item->isVBox() && id == Pid::BOX_HEIGHT) || (item->isHBox() && id == Pid::BOX_WIDTH);
+        writeProperty(item, xml, id, force);
     }
     writeItemProperties(item, xml, ctx);
     for (const EngravingItem* e : item->el()) {
@@ -874,6 +877,9 @@ void TWrite::write(const Chord* item, XmlWriter& xml, WriteContext& ctx)
     }
     if (item->hook() && item->hook()->isUserModified()) {
         write(item->hook(), xml, ctx);
+    }
+    if (item->showStemSlash() && item->isUserModified()) {
+        xml.tag("showStemSlash", item->showStemSlash());
     }
     if (item->stemSlash() && item->stemSlash()->isUserModified()) {
         write(item->stemSlash(), xml, ctx);
@@ -2607,7 +2613,19 @@ void TWrite::write(const StaffState* item, XmlWriter& xml, WriteContext& ctx)
 
 void TWrite::write(const StaffText* item, XmlWriter& xml, WriteContext& ctx)
 {
-    write(static_cast<const StaffTextBase*>(item), xml, ctx);
+    if (!ctx.canWrite(item)) {
+        return;
+    }
+
+    xml.startElement(item);
+
+    writeProperties(static_cast<const StaffTextBase*>(item), xml, ctx);
+
+    if (const SoundFlag* flag = item->soundFlag()) {
+        writeItem(flag, xml, ctx);
+    }
+
+    xml.endElement();
 }
 
 void TWrite::write(const StaffTextBase* item, XmlWriter& xml, WriteContext& ctx)
@@ -2615,8 +2633,14 @@ void TWrite::write(const StaffTextBase* item, XmlWriter& xml, WriteContext& ctx)
     if (!ctx.canWrite(item)) {
         return;
     }
-    xml.startElement(item);
 
+    xml.startElement(item);
+    writeProperties(item, xml, ctx);
+    xml.endElement();
+}
+
+void TWrite::writeProperties(const StaffTextBase* item, XmlWriter& xml, WriteContext& ctx)
+{
     for (const ChannelActions& s : item->channelActions()) {
         int channel = s.channel;
         for (const String& name : s.midiActionNames) {
@@ -2645,9 +2669,8 @@ void TWrite::write(const StaffTextBase* item, XmlWriter& xml, WriteContext& ctx)
         int swingRatio = item->swingParameters().swingRatio;
         xml.tag("swing", { { "unit", TConv::toXml(swingUnit) }, { "ratio", swingRatio } });
     }
-    writeProperties(static_cast<const TextBase*>(item), xml, ctx, true);
 
-    xml.endElement();
+    writeProperties(static_cast<const TextBase*>(item), xml, ctx, true);
 }
 
 void TWrite::write(const StaffType* item, XmlWriter& xml, WriteContext&)
@@ -2810,6 +2833,8 @@ void TWrite::write(const Symbol* item, XmlWriter& xml, WriteContext& ctx)
     xml.tag("name", SymNames::nameForSymId(item->sym()));
     if (item->scoreFont()) {
         xml.tag("font", item->scoreFont()->name());
+        writeProperty(item, xml, Pid::SYMBOLS_SIZE);
+        writeProperty(item, xml, Pid::SYMBOL_ANGLE);
     }
     writeProperties(static_cast<const BSymbol*>(item), xml, ctx);
     xml.endElement();
@@ -2847,6 +2872,25 @@ void TWrite::write(const SystemDivider* item, XmlWriter& xml, WriteContext& ctx)
 void TWrite::write(const SystemText* item, XmlWriter& xml, WriteContext& ctx)
 {
     write(static_cast<const StaffTextBase*>(item), xml, ctx);
+}
+
+void TWrite::write(const SoundFlag* item, XmlWriter& xml, WriteContext&)
+{
+    if (item->soundPresets().empty() && item->playingTechniques().empty()) {
+        return;
+    }
+
+    xml.startElement(item);
+
+    if (!item->soundPresets().empty()) {
+        xml.tag("presets", item->soundPresets().join(u","));
+    }
+
+    if (!item->playingTechniques().empty()) {
+        xml.tag("playingTechniques", item->playingTechniques().join(u","));
+    }
+
+    xml.endElement();
 }
 
 void TWrite::write(const TempoText* item, XmlWriter& xml, WriteContext& ctx)
@@ -2934,8 +2978,12 @@ void TWrite::write(const TremoloSingleChord* item, XmlWriter& xml, WriteContext&
         return;
     }
 
-    // for compatible reason
-    xml.startElement(TConv::toXml(ElementType::TREMOLO).ascii());
+    if (ctx.clipboardmode()) {
+        xml.startElement(item);
+    } else {
+        // for compatible reason
+        xml.startElement(TConv::toXml(ElementType::TREMOLO).ascii());
+    }
 
     writeProperty(item, xml, Pid::TREMOLO_TYPE);
     writeProperty(item, xml, Pid::PLAY);
@@ -2948,8 +2996,13 @@ void TWrite::write(const TremoloTwoChord* item, XmlWriter& xml, WriteContext& ct
     if (!ctx.canWrite(item)) {
         return;
     }
-    // for compatible reason
-    xml.startElement(TConv::toXml(ElementType::TREMOLO).ascii());
+
+    if (ctx.clipboardmode()) {
+        xml.startElement(item);
+    } else {
+        // for compatible reason
+        xml.startElement(TConv::toXml(ElementType::TREMOLO).ascii());
+    }
 
     writeProperty(item, xml, Pid::TREMOLO_TYPE);
     writeProperty(item, xml, Pid::TREMOLO_STYLE);

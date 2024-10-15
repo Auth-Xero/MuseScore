@@ -62,7 +62,6 @@
 #include "engraving/dom/text.h"
 #include "engraving/dom/tie.h"
 #include "engraving/dom/timesig.h"
-#include "engraving/dom/tremolo.h"
 #include "engraving/dom/tremolosinglechord.h"
 #include "engraving/dom/tremolobar.h"
 #include "engraving/dom/tuplet.h"
@@ -1001,9 +1000,22 @@ bool GuitarPro5::read(IODevice* io)
                         s->setTrack(n->track());
                         s->setParent(n);
                         s->setGlissandoType(GlissandoType::STRAIGHT);
+                        s->setGlissandoShift(true);
                         s->setEndElement(nt);
                         s->setTick2(nt->chord()->segment()->tick());
                         s->setTrack2(n->track());
+
+                        for (Spanner* spanner : n->chord()->startingSpanners()) {
+                            if (spanner && spanner->isSlur()) {
+                                Slur* slur = toSlur(spanner);
+                                if (slur->endElement() == nt->chord()) {
+                                    slur->setConnectedElement(mu::engraving::Slur::ConnectedElement::GLISSANDO);
+                                    s->setGlissandoShift(false);
+                                    break;
+                                }
+                            }
+                        }
+
                         score->addElement(s);
                         br = true;
                         break;
@@ -1371,9 +1383,6 @@ GuitarPro::ReadNoteResult GuitarPro5::readNote(int string, Note* note)
 
     if (noteBits & NOTE_GHOST) {
         note->setGhost(true);
-        if (engravingConfiguration()->guitarProImportExperimental()) {
-            note->setHeadHasParentheses(true);
-        }
     }
 
     bool tieNote = false;

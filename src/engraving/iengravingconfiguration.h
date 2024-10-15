@@ -110,12 +110,12 @@ public:
     /// these configurations will be removed after solving https://github.com/musescore/MuseScore/issues/14294
     virtual bool guitarProImportExperimental() const = 0;
     virtual bool negativeFretsAllowed() const = 0;
-    virtual bool tablatureParenthesesZIndexWorkaround() const = 0;
     virtual bool crossNoteHeadAlwaysBlack() const = 0;
     virtual bool enableExperimentalFretCircle() const = 0;
     virtual void setGuitarProMultivoiceEnabled(bool multiVoice) = 0;
     virtual bool guitarProMultivoiceEnabled() const = 0;
     virtual bool minDistanceForPartialSkylineCalculated() const = 0;
+    virtual bool specificSlursLayoutWorkaround() const = 0;
 };
 }
 

@@ -38,7 +38,6 @@
 #include "stem.h"
 #include "system.h"
 #include "stafftype.h"
-#include "tremolo.h"
 
 #include "log.h"
 
@@ -76,17 +75,13 @@ TremoloTwoChord::TremoloTwoChord(const TremoloTwoChord& t)
 
 TremoloTwoChord::~TremoloTwoChord()
 {
-    if (m_dispatcher) {
-        m_dispatcher->twoChord = nullptr;
-    }
-
     //
     // delete all references from chords
     //
-    if (m_chord1) {
+    if (m_chord1 && m_chord1->tremoloTwoChord() == this) {
         m_chord1->setTremoloTwoChord(nullptr);
     }
-    if (m_chord2) {
+    if (m_chord2 && m_chord2->tremoloTwoChord() == this) {
         m_chord2->setTremoloTwoChord(nullptr);
     }
 
@@ -575,19 +570,6 @@ void TremoloTwoChord::clearBeamSegments()
 
     DeleteAll(m_beamSegments);
     m_beamSegments.clear();
-}
-
-TremoloDispatcher* TremoloTwoChord::dispatcher() const
-{
-    if (!m_dispatcher) {
-        m_dispatcher = new TremoloDispatcher(item_cast<Chord*>(parent()));
-        m_dispatcher->twoChord = const_cast<TremoloTwoChord*>(this);
-        m_dispatcher->setTrack(this->track());
-        if (explicitParent()) {
-            m_dispatcher->setParent(chord());
-        }
-    }
-    return m_dispatcher;
 }
 
 // used for palettes

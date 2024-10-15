@@ -30,6 +30,7 @@
 #include "types/typesconv.h"
 
 #include "dom/mscore.h"
+#include "dom/pedal.h"
 #include "dom/types.h"
 
 #include "defaultstyle.h"
@@ -358,6 +359,39 @@ void MStyle::read(XmlReader& e, compat::ReadChordListHook* readChordListHook)
         } else if (tag == "chordlineThickness" && m_version < 410) {
             // Ignoring pre-4.1 value as it was wrong (it wasn't user-editable anyway)
             e.skipCurrentElement();
+        } else if (tag == "pedalText" && m_version < 420) {
+            // Ignore old default
+            String pedText = e.readText();
+            if (pedText != "") {
+                set(Sid::pedalText, pedText);
+            }
+        } else if (tag == "pedalContinueText" && m_version < 420 && e.readAsciiText() == "") {
+            // Ignore old default
+            String pedContText = e.readText();
+            if (pedContText != "") {
+                set(Sid::pedalText, pedContText);
+            }
+        } else if ((tag == "slurEndWidth"
+                    || tag == "slurMidWidth"
+                    || tag == "slurDottedWidth"
+                    || tag == "slurMinDistance")
+                   && m_version < 430) {
+            // Pre-4.3 scores used identical style values for slurs and ties.
+            // When opening older scores, use the same values for both.
+            double _val = e.readDouble();
+            if (tag == "slurEndWidth") {
+                set(Sid::TieEndWidth,     Spatium(_val));
+                set(Sid::SlurEndWidth,    Spatium(_val));
+            } else if (tag == "slurMidWidth") {
+                set(Sid::TieMidWidth,     Spatium(_val));
+                set(Sid::SlurMidWidth,    Spatium(_val));
+            } else if (tag == "slurDottedWidth") {
+                set(Sid::TieDottedWidth,  Spatium(_val));
+                set(Sid::SlurDottedWidth, Spatium(_val));
+            } else if (tag == "slurMinDistance") {
+                set(Sid::TieMinDistance,  Spatium(_val));
+                set(Sid::SlurMinDistance, Spatium(_val));
+            }
         } else if (!readProperties(e)) {
             e.unknown();
         }

@@ -56,6 +56,7 @@ public:
     QString currentSubPageCode() const;
 
     static QString pageCodeForElement(const EngravingItem*);
+    static QString subPageCodeForElement(const EngravingItem*);
 
 public slots:
     void accept();
@@ -139,6 +140,9 @@ private slots:
     void editUserStyleName();
     void endEditUserStyleName();
     void resetUserStyleName();
+    void updateParenthesisIndicatingTiesGroupState();
+    void clefVisibilityChanged(bool);
+    void tupletUseSymbolsChanged(bool);
 
 private:
     QString m_currentPageCode;

@@ -92,6 +92,7 @@
 #include "../../dom/sticking.h"
 #include "../../dom/systemdivider.h"
 #include "../../dom/systemtext.h"
+#include "./../dom/soundflag.h"
 
 #include "../../dom/textbase.h"
 #include "../../dom/tempotext.h"
@@ -198,14 +199,14 @@ public:
 
     static void layoutBarLine(const BarLine* item, BarLine::LayoutData* ldata, const LayoutContext& ctx);
     static void layoutBarLine2(BarLine* item, LayoutContext& ctx);
-    static void layoutBeam(Beam* item, LayoutContext& ctx);
+    static void layoutBeam(Beam* item, const LayoutContext& ctx);
     static void layoutBeam1(Beam* item, LayoutContext& ctx);
     static void layoutBend(const Bend* item, Bend::LayoutData* ldata);
 
     static void layoutBox(const Box* item, Box::LayoutData* ldata, const LayoutContext& ctx); // factory
     static void layoutBaseBox(const Box* item, Box::LayoutData* ldata, const LayoutContext& ctx); // base class
     static void layoutHBox(const HBox* item, HBox::LayoutData* ldata, const LayoutContext& ctx);
-    static void layoutHBox2(HBox* item, LayoutContext& ctx);
+    static void layoutHBox2(HBox* item, const LayoutContext& ctx);
     static void layoutVBox(const VBox* item, VBox::LayoutData* ldata, const LayoutContext& ctx);
     static void layoutFBox(const FBox* item, FBox::LayoutData* ldata, const LayoutContext& ctx);
     static void layoutTBox(const TBox* item, FBox::LayoutData* ldata, const LayoutContext& ctx);
@@ -215,7 +216,7 @@ public:
 
     static void layoutChord(Chord* item, LayoutContext& ctx);
     static void layoutChordLine(const ChordLine* item, ChordLine::LayoutData* ldata, const LayoutConfiguration& conf);
-    static void layoutClef(const Clef* item, Clef::LayoutData* ldata);
+    static void layoutClef(const Clef* item, Clef::LayoutData* ldata, const LayoutConfiguration& conf);
     static void layoutCapo(const Capo* item, Capo::LayoutData* ldata, const LayoutContext& ctx);
 
     static void layoutDeadSlapped(const DeadSlapped* item, DeadSlapped::LayoutData* ldata);
@@ -309,6 +310,7 @@ public:
     static void layoutStretchedBend(StretchedBend* item, LayoutContext& ctx);
     static void layoutStretched(StretchedBend* item, LayoutContext& ctx);
     static void layoutStringTunings(StringTunings* item, LayoutContext& ctx);
+    static void layoutSoundFlag(const SoundFlag* item, SoundFlag::LayoutData* ldata);
 
     static void layoutSymbol(const Symbol* item, Symbol::LayoutData* ldata, const LayoutContext& ctx);
     static void layoutFSymbol(const FSymbol* item, FSymbol::LayoutData* ldata);

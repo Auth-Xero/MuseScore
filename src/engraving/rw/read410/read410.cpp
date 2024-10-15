@@ -35,7 +35,6 @@
 #include "dom/tuplet.h"
 #include "dom/chord.h"
 #include "dom/beam.h"
-#include "dom/tremolo.h"
 #include "dom/lyrics.h"
 #include "dom/note.h"
 #include "dom/measurerepeat.h"
@@ -154,6 +153,8 @@ bool Read410::readScore410(Score* score, XmlReader& e, ReadContext& ctx)
             score->m_showFrames = e.readInt();
         } else if (tag == "showMargins") {
             score->m_showPageborders = e.readInt();
+        } else if (tag == "showSoundFlags") {
+            score->m_showSoundFlags = e.readInt();
         } else if (tag == "markIrregularMeasures") {
             score->m_markIrregularMeasures = e.readInt();
         } else if (tag == "Style") {
@@ -285,8 +286,6 @@ bool Read410::readScore410(Score* score, XmlReader& e, ReadContext& ctx)
     for (int idx : sysStaves) {
         score->addSystemObjectStaff(score->staff(idx));
     }
-
-//      createPlayEvents();
 
     return true;
 }

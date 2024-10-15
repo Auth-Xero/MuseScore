@@ -74,7 +74,7 @@
 #include "textedit.h"
 #include "textline.h"
 #include "tie.h"
-#include "tremolo.h"
+
 #include "tremolobar.h"
 #include "tuplet.h"
 #include "utils.h"
@@ -1470,8 +1470,6 @@ void ChangeElement::flip(EditData*)
         if (!ks->generated()) {
             ks->staff()->setKey(ks->tick(), ks->keySigEvent());
         }
-    } else if (newElement->isDynamic()) {
-        newElement->score()->addLayoutFlags(LayoutFlag::FIX_PITCH_VELO);
     } else if (newElement->isTempoText()) {
         TempoText* t = toTempoText(oldElement);
         score->setTempo(t->segment(), t->tempo());
@@ -2001,9 +1999,22 @@ ChangeChordStaffMove::ChangeChordStaffMove(ChordRest* cr, int v)
 void ChangeChordStaffMove::flip(EditData*)
 {
     int v = chordRest->staffMove();
+    staff_idx_t oldStaff = chordRest->vStaffIdx();
+
+    chordRest->setStaffMove(staffMove);
+    chordRest->checkStaffMoveValidity();
+    chordRest->triggerLayout();
+    if (chordRest->vStaffIdx() == oldStaff) {
+        return;
+    }
+
     for (EngravingObject* e : chordRest->linkList()) {
         ChordRest* cr = toChordRest(e);
+        if (cr == chordRest) {
+            continue;
+        }
         cr->setStaffMove(staffMove);
+        cr->checkStaffMoveValidity();
         cr->triggerLayout();
     }
     staffMove = v;
@@ -3173,6 +3184,22 @@ void ChangeStringData::flip(EditData*)
     }
 
     m_stringData.set(StringData(frets, stringList));
+}
+
+void ChangeSoundFlag::flip(EditData*)
+{
+    IF_ASSERT_FAILED(m_soundFlag) {
+        return;
+    }
+
+    SoundFlag::PresetCodes presets = m_soundFlag->soundPresets();
+    SoundFlag::PlayingTechniqueCodes techniques = m_soundFlag->playingTechniques();
+
+    m_soundFlag->setSoundPresets(m_presets);
+    m_soundFlag->setPlayingTechniques(m_playingTechniques);
+
+    m_presets = std::move(presets);
+    m_playingTechniques = std::move(techniques);
 }
 
 void ChangeSpanArpeggio::flip(EditData*)

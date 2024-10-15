@@ -152,6 +152,7 @@ enum class Pid {
     BEAM_MODE,
     BEAM_NO_SLOPE,
     USER_LEN,         // used for stems
+    SHOW_STEM_SLASH,  // used for grace notes
 
     SPACE,            // used for spacer
     TEMPO,
@@ -322,6 +323,7 @@ enum class Pid {
     FRAME_BG_COLOR,
     SIZE_SPATIUM_DEPENDENT,
     TEXT_SIZE_SPATIUM_DEPENDENT, // for text component of textLine items
+    MUSICAL_SYMBOLS_SCALE,
     ALIGN,
     TEXT_SCRIPT_ALIGN,
     SYSTEM_FLAG,
@@ -431,6 +433,10 @@ enum class Pid {
     STRINGTUNINGS_STRINGS_COUNT,
     STRINGTUNINGS_PRESET,
     STRINGTUNINGS_VISIBLE_STRINGS,
+
+    SCORE_FONT,
+    SYMBOLS_SIZE,
+    SYMBOL_ANGLE,
 
     END
 };

@@ -78,7 +78,6 @@
 #include "engraving/dom/tie.h"
 #include "engraving/dom/timesig.h"
 #include "engraving/dom/tuplet.h"
-#include "engraving/dom/tremolo.h"
 #include "engraving/dom/tremolobar.h"
 #include "engraving/dom/volta.h"
 #include "engraving/dom/vibrato.h"
@@ -887,7 +886,7 @@ void GuitarPro::readVolta(GPVolta* gpVolta, Measure* m)
             case GP_VOLTA_FLAGS:
                 count++;
                 if (*iter == 1) {                 // we want this number to be displayed in the volta
-                    if (voltaTextString == u"") {
+                    if (voltaTextString.empty()) {
                         voltaTextString += String::number(count);
                     } else {
                         voltaTextString += u',' + String::number(count);
@@ -906,7 +905,7 @@ void GuitarPro::readVolta(GPVolta* gpVolta, Measure* m)
                 if (iter == gpVolta->voltaInfo.end()) {
                     // display all numbers in the volta from voltaSequence to the decimal
                     while (voltaSequence <= binaryNumber) {
-                        if (voltaTextString == u"") {
+                        if (voltaTextString.empty()) {
                             voltaTextString = String::number(voltaSequence);
                         } else {
                             voltaTextString += u',' + String::number(voltaSequence);
@@ -1706,11 +1705,14 @@ void GuitarPro::createSlur(bool hasSlur, staff_idx_t staffIdx, ChordRest* cr)
         slur->setTrack2(cr->track());
         slur->setTick(cr->tick());
         slur->setTick2(cr->tick());
+        slur->setStartElement(cr);
+        slur->setEndElement(cr);
         slurs[staffIdx] = slur;
         score->addElement(slur);
     } else if (slurs[staffIdx] && !hasSlur) {
         Slur* s = slurs[staffIdx];
         slurs[staffIdx] = 0;
+        s->setEndElement(cr);
         s->setTick2(cr->tick());
         s->setTrack2(cr->track());
     }
@@ -3354,19 +3356,6 @@ static Err importScore(MasterScore* score, mu::io::IODevice* io, bool experiment
         for (const auto& pair : part->instruments()) {
             pair.second->updateInstrumentId();
         }
-
-        std::vector<MidiArticulation> articulations =
-        {
-            MidiArticulation(u"staccatissimo", u"", 100, 30),
-            MidiArticulation(u"staccato", u"", 100, 50),
-            MidiArticulation(u"portato", u"", 100, 67),
-            MidiArticulation(u"tenuto", u"", 100, 100),
-            MidiArticulation(u"accent", u"", 120, 100),
-            MidiArticulation(u"marcato", u"", 144, 100),
-            MidiArticulation(u"sforzato", u"", 169, 100),
-        };
-
-        part->instrument()->setArticulation(articulations);
     }
 
     score->setUpTempoMap();

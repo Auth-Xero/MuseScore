@@ -25,7 +25,7 @@
 
 #include "chord.h"
 #include "hook.h"
-#include "tremolo.h"
+
 #include "tremolosinglechord.h"
 
 #include "log.h"
@@ -63,7 +63,6 @@ bool Stem::up() const
 void Stem::setBaseLength(Millimetre baseLength)
 {
     m_baseLength = Millimetre(std::abs(baseLength.val()));
-    renderer()->layoutItem(this);
 }
 
 void Stem::spatiumChanged(double oldValue, double newValue)

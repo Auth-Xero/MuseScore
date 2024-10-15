@@ -24,6 +24,7 @@
 
 #include "utils/scorerw.h"
 #include "engraving/compat/midi/compatmidirender.h"
+#include "engraving/compat/midi/pausemap.h"
 #include "engraving/infrastructure/localfileinfoprovider.h"
 #include "engraving/rw/mscloader.h"
 #include "engraving/dom/noteevent.h"
@@ -84,6 +85,20 @@ static EventsHolder renderMidiEvents(const String& fileName, bool eachStringHasC
 
     ctx.eachStringHasChannel = eachStringHasChannel;
     ctx.instrumentsHaveEffects = instrumentsHaveEffects;
+    CompatMidiRender::renderScore(score, events, ctx, true);
+
+    return events;
+}
+
+static EventsHolder renderMidiEventsWithPause(const String& fileName,
+                                              CompatMidiRendererInternal::Context& ctx)
+{
+    MasterScore* score = ScoreRW::readScore(MIDIRENDERER_TESTS_DIR + fileName);
+    EXPECT_TRUE(score);
+
+    EventsHolder events;
+    ctx.applyCaesuras = true;
+
     CompatMidiRender::renderScore(score, events, ctx, true);
 
     return events;
@@ -831,6 +846,25 @@ TEST_F(MidiRenderer_Tests, breathController)
     }
 }
 
+TEST_F(MidiRenderer_Tests, caesura)
+{
+    constexpr int defVol = 80; // mf
+    CompatMidiRendererInternal::Context context;
+
+    EventsHolder events = getNoteOnEvents(renderMidiEventsWithPause(u"caesura.mscx", context));
+    EXPECT_EQ(events.size(), 1);
+    EXPECT_EQ(events[DEFAULT_CHANNEL].size(), 4);
+
+    // caesuras check
+    EXPECT_EQ(CompatMidiRender::tick(context, 0), 0);
+    EXPECT_EQ(CompatMidiRender::tick(context, 911), 911);
+    EXPECT_EQ(CompatMidiRender::tick(context, 960), 2880);
+    EXPECT_EQ(CompatMidiRender::tick(context, 1871), 3791);
+
+    checkEventInterval(events, 0, 911, 64, defVol);
+    checkEventInterval(events, 960, 1871, 67, defVol);
+}
+
 /*****************************************************************************
 
    Hairpin + dynamic tests
@@ -912,6 +946,25 @@ TEST_F(MidiRenderer_Tests, hairpinDynamicInside)
     checkEventInterval(events, 1920, 2399, 67, 49);
     checkEventInterval(events, 2400, 2879, 69, 96);
     checkEventInterval(events, 2880, 3359, 71, 96);
+}
+
+TEST_F(MidiRenderer_Tests, hairpinTwoInstruments)
+{
+    EventsHolder events = getNoteOnEvents(renderMidiEvents(u"hairpin_two_instruments.mscx"));
+
+    EXPECT_EQ(events.size(), 2);
+    EXPECT_EQ(events[DEFAULT_CHANNEL].size(), 8);
+    EXPECT_EQ(events[DEFAULT_CHANNEL + 1].size(), 8);
+
+    checkEventInterval(events, 0, 479, 60, 80, MidiInstrumentEffect::NONE, DEFAULT_CHANNEL);
+    checkEventInterval(events, 480, 959, 64, 84, MidiInstrumentEffect::NONE, DEFAULT_CHANNEL);
+    checkEventInterval(events, 960, 1439, 67, 88, MidiInstrumentEffect::NONE, DEFAULT_CHANNEL);
+    checkEventInterval(events, 1440, 1919, 72, 92, MidiInstrumentEffect::NONE, DEFAULT_CHANNEL);
+
+    checkEventInterval(events, 0, 479, 55, 80, MidiInstrumentEffect::NONE, DEFAULT_CHANNEL + 1);
+    checkEventInterval(events, 480, 959, 55, 80, MidiInstrumentEffect::NONE, DEFAULT_CHANNEL + 1);
+    checkEventInterval(events, 960, 1439, 55, 80, MidiInstrumentEffect::NONE, DEFAULT_CHANNEL + 1);
+    checkEventInterval(events, 1440, 1919, 55, 80, MidiInstrumentEffect::NONE, DEFAULT_CHANNEL + 1);
 }
 
 /*****************************************************************************

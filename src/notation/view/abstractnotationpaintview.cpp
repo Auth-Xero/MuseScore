@@ -274,6 +274,7 @@ void AbstractNotationPaintView::onLoadNotation(INotationPtr)
 
     m_notation->viewModeChanged().onNotify(this, [this]() {
         updateLoopMarkers();
+        ensureViewportInsideScrollableArea();
     });
 
     if (isMainView()) {
@@ -374,9 +375,7 @@ void AbstractNotationPaintView::onViewSizeChanged()
 
     ensureViewportInsideScrollableArea();
 
-    if (m_playbackCursor->visible()) {
-        scheduleRedraw();
-    }
+    scheduleRedraw();
 
     emit horizontalScrollChanged();
     emit verticalScrollChanged();

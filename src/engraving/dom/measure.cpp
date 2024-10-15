@@ -69,7 +69,7 @@
 #include "tie.h"
 #include "tiemap.h"
 #include "timesig.h"
-#include "tremolo.h"
+
 #include "tremolosinglechord.h"
 #include "tremolotwochord.h"
 #include "tuplet.h"
@@ -364,17 +364,18 @@ struct AcEl {
 AccidentalVal Measure::findAccidental(Note* note) const
 {
     Chord* chord = note->chord();
+    Staff* vStaff = chord->score()->staff(chord->vStaffIdx());
     AccidentalState tversatz;    // state of already set accidentals for this measure
-    tversatz.init(chord->staff()->keySigEvent(tick()));
+    tversatz.init(vStaff->keySigEvent(tick()));
 
     for (Segment* segment = first(); segment; segment = segment->next()) {
-        track_idx_t startTrack = chord->staffIdx() * VOICES;
+        track_idx_t startTrack = chord->vStaffIdx() * VOICES;
         if (segment->isKeySigType()) {
             KeySig* ks = toKeySig(segment->element(startTrack));
             if (!ks) {
                 continue;
             }
-            tversatz.init(chord->staff()->keySigEvent(segment->tick()));
+            tversatz.init(vStaff->keySigEvent(segment->tick()));
         } else if (segment->segmentType() == SegmentType::ChordRest) {
             track_idx_t endTrack   = startTrack + VOICES;
             for (track_idx_t track = startTrack; track < endTrack; ++track) {
@@ -533,8 +534,13 @@ bool Measure::showsMeasureNumberInAutoMode()
         return false;
     }
 
+    int interval = style().styleI(Sid::measureNumberInterval);
+    Measure* prevMeasure = this->prevMeasure();
+
     // Measure numbers should not show on first measure unless specified with Sid::showMeasureNumberOne
-    if (!no()) {
+    // except, when showing numbers on each measure, and first measure is after anacrusis - then show always
+    if (!prevMeasure || prevMeasure->sectionBreak()
+        || (prevMeasure->irregular() && prevMeasure->isFirstInSection() && interval != 1)) {
         return style().styleB(Sid::showMeasureNumberOne);
     }
 
@@ -543,11 +549,10 @@ bool Measure::showsMeasureNumberInAutoMode()
         //   1) This is the first measure of the system OR
         //   2) The previous measure in the system is the first, and is irregular.
         return isFirstInSystem()
-               || (prevMeasure() && prevMeasure()->irregular() && prevMeasure()->isFirstInSystem());
+               || (prevMeasure && prevMeasure->irregular() && prevMeasure->isFirstInSystem());
     } else {
         // In the case of an interval, we should show the measure number either if:
         //   1) We should show them every measure
-        int interval = style().styleI(Sid::measureNumberInterval);
         if (interval == 1) {
             return true;
         }
@@ -555,7 +560,7 @@ bool Measure::showsMeasureNumberInAutoMode()
         //   2) (measureNumber + 1) % interval == 0 (or 1 if measure number one is numbered.)
         // If measure number 1 is numbered, and the interval is let's say 5, then we should number #1, 6, 11, 16, etc.
         // If measure number 1 is not numbered, with the same interval (5), then we should number #5, 10, 15, 20, etc.
-        return ((no() + 1) % style().styleI(Sid::measureNumberInterval)) == (style().styleB(Sid::showMeasureNumberOne) ? 1 : 0);
+        return ((no() + 1) % interval) == (style().styleB(Sid::showMeasureNumberOne) ? 1 : 0);
     }
 }
 
@@ -693,7 +698,7 @@ Segment* Measure::findFirstR(SegmentType st, const Fraction& t) const
     Segment* s;
     // search forwards
     for (s = first(); s && s->rtick() <= t; s = s->next()) {
-        if (s->segmentType() == st) {
+        if (s->segmentType() & st) {
             return s;
         }
     }
@@ -1928,6 +1933,16 @@ bool Measure::isFirstInSystem() const
         return false;
     }
     return system()->firstMeasure() == this;
+}
+
+//---------------------------------------------------------
+//   isFirstInSection
+//---------------------------------------------------------
+
+bool Measure::isFirstInSection() const
+{
+    Measure* prevMeasure = this->prevMeasure();
+    return !prevMeasure || prevMeasure->sectionBreak();
 }
 
 //---------------------------------------------------------

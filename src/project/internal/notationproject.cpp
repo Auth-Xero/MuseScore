@@ -25,7 +25,8 @@
 #include <QDir>
 #include <QFile>
 
-#include "io/buffer.h"
+#include "global/io/buffer.h"
+#include "global/io/file.h"
 
 #include "engraving/dom/undo.h"
 
@@ -195,17 +196,11 @@ mu::Ret NotationProject::doLoad(const io::path_t& path, const io::path_t& styleP
     masterScore->update();
 
     // Load audio settings
+    bool tryCompatAudio = false;
     ret = m_projectAudioSettings->read(reader);
     if (!ret) {
         m_projectAudioSettings->makeDefault();
-
-        // Apply compat audio settings
-        if (!settingsCompat.audioSettings.empty()) {
-            for (const auto& audioCompat : settingsCompat.audioSettings) {
-                IProjectAudioSettings::SoloMuteState state = { audioCompat.second.mute, audioCompat.second.solo };
-                m_projectAudioSettings->setTrackSoloMuteState(audioCompat.second.instrumentId, state);
-            }
-        }
+        tryCompatAudio = true;
     }
 
     // Load cloud info
@@ -223,10 +218,22 @@ mu::Ret NotationProject::doLoad(const io::path_t& path, const io::path_t& styleP
     // Set current if all success
     m_masterNotation->setMasterScore(masterScore);
 
-    // Load view settings (needs to be done after notations are created)
+    // Load view settings & solo-mute states (needs to be done after notations are created)
     m_masterNotation->notation()->viewState()->read(reader);
+    m_masterNotation->notation()->soloMuteState()->read(reader);
     for (IExcerptNotationPtr excerpt : m_masterNotation->excerpts()) {
-        excerpt->notation()->viewState()->read(reader, u"Excerpts/" + excerpt->fileName() + u"/");
+        io::path_t ePath = u"Excerpts/" + excerpt->fileName() + u"/";
+        excerpt->notation()->viewState()->read(reader, ePath);
+        excerpt->notation()->soloMuteState()->read(reader, ePath);
+    }
+
+    // Apply compat audio settings (needs to be done after notations are created)
+    if (tryCompatAudio && !settingsCompat.audioSettings.empty()) {
+        for (const auto& audioCompat : settingsCompat.audioSettings) {
+            notation::INotationSoloMuteState::SoloMuteState state = { audioCompat.second.mute, audioCompat.second.solo };
+            INotationSoloMuteStatePtr soloMuteStatePtr = m_masterNotation->notation()->soloMuteState();
+            soloMuteStatePtr->setTrackSoloMuteState(audioCompat.second.instrumentId, state);
+        }
     }
 
     return make_ret(Ret::Code::Ok);
@@ -702,17 +709,24 @@ mu::Ret NotationProject::writeProject(MscWriter& msczWriter, bool onlySelection,
         return make_ret(notation::Err::UnknownError);
     }
 
-    // Write audio settings
-    ret = m_projectAudioSettings->write(msczWriter);
+    // Write master audio settings
+    ret = m_projectAudioSettings->write(msczWriter, m_masterNotation->notation()->soloMuteState());
     if (!ret) {
         LOGE() << "failed write project audio settings, err: " << ret.toString();
         return ret;
     }
 
-    // Write view settings
+    // Write view settings and excerpt solo-mute states
     m_masterNotation->notation()->viewState()->write(msczWriter);
     for (IExcerptNotationPtr excerpt : m_masterNotation->excerpts()) {
-        excerpt->notation()->viewState()->write(msczWriter, u"Excerpts/" + excerpt->fileName() + u"/");
+        io::path_t path = u"Excerpts/" + excerpt->fileName() + u"/";
+        excerpt->notation()->viewState()->write(msczWriter, path);
+
+        ByteArray soloMuteData;
+        Buffer soloMuteBuf(&soloMuteData);
+        soloMuteBuf.open(IODevice::WriteOnly);
+        excerpt->notation()->soloMuteState()->write(&soloMuteBuf /*out*/);
+        msczWriter.writeAudioSettingsJsonFile(soloMuteData, path);
     }
 
     return make_ret(Ret::Code::Ok);
@@ -760,8 +774,8 @@ mu::Ret NotationProject::exportProject(const io::path_t& path, const std::string
 {
     TRACEFUNC;
 
-    QFile file(path.toQString());
-    file.open(QFile::WriteOnly);
+    File file(path);
+    file.open(File::WriteOnly);
 
     auto writer = writers()->writer(suffix);
     if (!writer) {
